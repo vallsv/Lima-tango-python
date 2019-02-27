@@ -18,11 +18,17 @@ high_voltage			No		0		Initial detector high voltage (V)
 fixed_clock_div			No		0		Initial detector fixed-clock-div
 threshold_energy		No		0		Initial detector threshold energy (eV)
 tolerate_lost_packets		No		True		Initial tolerance to lost packets
-netdev_groups			No		[]		List of network device groups, each group is a list of 
-								comma-separated interface names: ["ethX,ethY", "ethZ,..."]
-pixel_depth_cpu_affinity_map	No		[]		Default PixelDepthCPUAffinityMap as a list of 5+n-value tuple 
-								strings (n is nb of netdev_groups):
-								["<pixel_depth>,<recv_l>,<recv_w>,<lima>,<other>[,<netdev_grp1>,...]", ...]
+pixel_depth_cpu_affinity_map	No		[]		Default PixelDepthCPUAffinityMap as Python string(s) defining a dict:
+								{<pixel_depth>: <global_affinity>}, being global_affinity a tuple:
+								(<recv_list>, <lima>, <other>, <netdev_grp_list>), where recv_list
+								is a list of tupples in the form: (<port_1>, <port_2>), where portX
+								is a tupple of affinities: (<listener>, <writer>, <port_thread>),
+								lima and and other are affinities, and netdev_grp_list is a list of
+								tuples in the form:
+								(<comma_separated_netdev_name_list>, <rx_queue_affinity_map>), the
+								latter in the form of: {<queue>: (<irq>, <processing>)}.
+								Each affinity can be expressed by one of the functions: Mask(mask)
+								or CPU(<cpu1>[, ..., <cpuN>]) for independent CPU enumeration
 =============================== =============== =============== ==============================================================
 
 
@@ -63,10 +69,8 @@ readout_flags			rw	DevString		The flags affecting the readout mode (Parallel|Non
 								 - **SAFE + CONTINUOUS**
 max_frame_rate			ro	DevDouble		Maximum number of frames per second (kHz)
 tolerate_lost_packets		rw	DevBoolean		Allow acquisitions with incomplete frames due to overrun
-netdev_groups			rw	DevVarStringArray	List of network device groups, each group is a list of 
-								comma-separated interface names: ["ethX,ethY", "ethZ,..."]
-pixel_depth_cpu_affinity_map	rw	DevDouble 5+n-col IMAGE	PixelDepth -> CPUAffinity map as a 2D array:
-					(n=nb of netdev_groups)	[[pixel_depth, recv_l, recv_w, lima, other[, <netdev_grp1>, ...]], ...]
+pixel_depth_cpu_affinity_map	rw	DevString		PixelDepth -> CPUAffinity map as a Python string
+								(see description of corresponding device property)
 =============================== ======= ======================= ===========================================================
 
 Please refer to the *PSI/SLS Eiger User's Manual* for more information about the above specfic configuration parameters.
