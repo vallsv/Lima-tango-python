@@ -22,7 +22,8 @@ pixel_depth_cpu_affinity_map	No		[]		Default PixelDepthCPUAffinityMap as Python 
 								{<pixel_depth>: <global_affinity>}, being global_affinity a tuple:
 								(<recv_list>, <lima>, <other>, <netdev_grp_list>), where recv_list
 								is a list of tupples in the form: (<port_1>, <port_2>), where portX
-								is a tupple of affinities: (<listener>, <writer>, <port_thread>),
+								is a tupple: (<listener>, <writer>, <port_threads>) where listener 
+								and writer are affinities and port_threads a tuple of affinities,
 								lima and and other are affinities, and netdev_grp_list is a list of
 								tuples in the form:
 								(<comma_separated_netdev_name_list>, <rx_queue_affinity_map>), the
@@ -30,6 +31,8 @@ pixel_depth_cpu_affinity_map	No		[]		Default PixelDepthCPUAffinityMap as Python 
 								Each affinity can be expressed by one of the functions: Mask(mask)
 								or CPU(<cpu1>[, ..., <cpuN>]) for independent CPU enumeration
 =============================== =============== =============== ==============================================================
+
+.. note: The Eiger detector has currently 4 threads per port.
 
 
 Attributes
