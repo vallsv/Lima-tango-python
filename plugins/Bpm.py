@@ -547,18 +547,16 @@ def construct_bvdata(bpm):
 
     if bpm.lut_method=="LOG":
         if min_val>0:
-            img_in = numpy.log10(scale_image)
-            min_val += 1
+            scale_image = numpy.log10(scale_image)
         else:
-            img_in = numpy.log10(scale_image.clip(1, None))
-        min_val = numpy.log10(min_val + 1)
+            scale_image = numpy.log10(scale_image.clip(1, None))
+            min_val += 1
+        min_val = numpy.log10(min_val)
         max_val = numpy.log10(max_val if max_val > 0 else 1)
 
-    if bpm.autoscale:
+    if bpm.autoscale or bpm.lut_method=="LOG":
         scaling = (2**16 - 1.) / (max_val - min_val)
         scale_image = ((scale_image - min_val) * scaling).astype(numpy.uint16)
-    elif bpm.lut_method=="LOG":
-        scale_image = scale_image.clip(0, 2**16-1)
     else:
         shift = bpp - 16
         if shift > 0:
