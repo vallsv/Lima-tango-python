@@ -90,7 +90,6 @@ class BpmDeviceServer(BasePostProcess):
 
 
     def init_device(self):
-        print ("In ", self.get_name(), "::init_device()")
         self.get_device_properties(self.get_device_class())
         if self.enable_tango_event:
             for attr in ("intensity", "proj_x", "proj_y",
@@ -523,63 +522,60 @@ def construct_bvdata(bpm):
     roi_top_left = lima_roi.getTopLeft()
     roi_size = lima_roi.getSize()
     jpegFile = StringIO()
-    if bpm.autoscale:
-        min_val = image.buffer.min()
-        max_val = image.buffer.max()
-    else:
-        image_type = _control_ref().image().getImageType()
-        min_val=0
-        if image_type==0: #Bpp8
-            max_val=256
-        elif image_type==2: #Bpp10
-            max_val=1024
-        elif image_type==4: #Bpp12
-            max_val=4096
-        elif image_type==6: #Bpp14
-            max_val=16384
-        elif image_type==8: #Bpp16
-            max_val=65536
-        elif image_type==16: #Bpp24
-            max_val=16777216
-        elif image_type==10: #Bpp32
-            max_val=4294967296-1 
-            #numpy uint32 stops at 4294967295.
-            #if you clip with max_val=4294967296
-            #numpy.clip() will return 0 everywhere
-    if bpm.lut_method=="LOG":
-        if min_val==0:
-            min_val=1
-        if max_val==0:
-            max_val=1
+    image_type = _control_ref().image().getImageType()
 
-    scale_image = image.buffer.clip(min_val, max_val)
-    if(min_val!=max_val):
-        if bpm.lut_method=="LOG":
-            if min_val!=0:
-                min_val=math.log10(min_val)
-            else:
-                min_val=1E-6
-            max_val=math.log10(max_val)
-        A = int(65535.0 / (max_val - min_val))
-        B = int(-(65535.0 * min_val) / (max_val-min_val))
-    else:
-        A=1;B=0
+    if image_type==0: #Bpp8
+        bpp = 8
+    elif image_type==2: #Bpp10
+        bpp = 10
+    elif image_type==4: #Bpp12
+        bpp = 12
+    elif image_type==6: #Bpp14
+        bpp = 14
+    elif image_type==8: #Bpp16
+        bpp = 16
+    elif image_type==16: #Bpp24
+        bpp = 24
+    elif image_type==10: #Bpp32
+        bpp = 32
+
+    min_val = image.buffer.min()
+    max_val = image.buffer.max()
+
+    scale_image = image.buffer
 
     if bpm.lut_method=="LOG":
-        scale_image[:] = numpy.log10(scale_image) * A + B
+        if min_val>0:
+            scale_image = numpy.log10(scale_image)
+        else:
+            scale_image = numpy.log10(scale_image.clip(1, None))
+            min_val += 1
+        min_val = numpy.log10(min_val)
+        max_val = numpy.log10(max_val if max_val > 0 else 1)
+
+    if bpm.autoscale or bpm.lut_method=="LOG":
+        scaling = (2**16 - 1.) / (max_val - min_val)
+        scale_image = ((scale_image - min_val) * scaling).astype(numpy.uint16)
     else:
-        scale_image *= A
-        scale_image += B
+        shift = bpp - 16
+        if shift > 0:
+            scale_image = numpy.right_shift(scale_image, shift).astype(numpy.uint16)
+        elif shift < 0:
+            scale_image = numpy.left_shift(scale_image, -shift).astype(numpy.uint16)
+        else:
+            scale_image = scale_image.astype(numpy.uint16)
+
     if bpm.color_map==True:
         img_buffer = bpm.palette["color"].take(scale_image, axis=0)
     else:
         img_buffer = bpm.palette["grey"].take(scale_image, axis=0)
+
     I = Image.fromarray(img_buffer, "RGB")
     I.save(jpegFile, "jpeg", quality=95)
     raw_jpeg_data = jpegFile.getvalue()
     image_jpeg = base64.b64encode(raw_jpeg_data)
-    profil_x = str(last_proj_x.tolist()).encode()
-    profil_y = str(last_proj_y.tolist()).encode()
+    profil_x = last_proj_x.tobytes()
+    profil_y = last_proj_y.tobytes()
     bvdata_format='dldddliiiidd%ds%ds%ds' %(len(profil_x),len(profil_y),len(image_jpeg))
     bvdata = struct.pack(
                 bvdata_format,
@@ -599,8 +595,6 @@ def construct_bvdata(bpm):
                 profil_y,
                 image_jpeg)
     return bvdata, bvdata_format
-
-
 
 
 _control_ref = None
