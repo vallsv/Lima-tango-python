@@ -90,7 +90,6 @@ class BpmDeviceServer(BasePostProcess):
 
 
     def init_device(self):
-        print ("In ", self.get_name(), "::init_device()")
         self.get_device_properties(self.get_device_class())
         if self.enable_tango_event:
             for attr in ("intensity", "proj_x", "proj_y",
