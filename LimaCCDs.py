@@ -268,8 +268,9 @@ class LimaCCDs(PyTango.Device_4Impl) :
 
         DefaultMaxEventRate = 25
 
-        def __init__(self, device, control):
+        def __init__(self, device, control, events=False):
             Core.CtControl.ImageStatusCallback.__init__(self)
+            self.__events = events
             self.__device = weakref.ref(device)
             self.__control = weakref.ref(control)
             self.__last_base_image_ready = None
@@ -280,45 +281,72 @@ class LimaCCDs(PyTango.Device_4Impl) :
             self.__image_events_push_data = False
             self.__last_event_time = 0
             self.__image_events_max_rate = self.DefaultMaxEventRate
+            self.__last_acq_status = None
 
         def imageStatusChanged(self, image_status):
-            last_base_image_ready = image_status.LastBaseImageReady
-            last_counter_ready = image_status.LastCounterReady
-            last_image_acquired = image_status.LastImageAcquired
-            last_image_ready = image_status.LastImageReady
-            last_image_saved = image_status.LastImageSaved
-
-            device = self.__device()
-            if self.__last_base_image_ready != last_base_image_ready:
-                device.push_change_event("last_base_image_ready",
-                                         last_base_image_ready)
-                self.__last_base_image_ready = last_base_image_ready
-            if self.__last_counter_ready != last_counter_ready:
-                device.push_change_event("last_counter_ready",
-                                         last_counter_ready)
-            if self.__last_image_acquired != last_image_acquired:
-                device.push_change_event("last_image_acquired",
-                                         last_image_acquired)
-                self.__last_image_acquired = last_image_acquired
-            if self.__last_image_ready != last_image_ready:
-                device.push_change_event("last_image_ready", last_image_ready)
-                self.__last_image_ready = last_image_ready
-                if (last_image_ready >= 0) and self.__image_events_push_data:
-                    control = self.__control()
-                    image = control.ReadImage(last_image_ready)
-                    category = self.DataArrayCategory.Image
-                    data = device._image_2_data_array(image, category)
-                    device.push_change_event("last_image", 'DATA_ARRAY', data)
-            if self.__last_image_saved != last_image_saved:
-                device.push_change_event("last_image_saved",
-                                         last_image_saved)
-                self.__last_image_saved = last_image_saved                
-
             tn = time.time()
             te = self.__last_event_time + 1.0 / self.__image_events_max_rate
-            if tn < te:
-                time.sleep(te - tn)
-            self.__last_event_time = tn
+
+            # if the TangoEvent property is not set, the counters/image
+            # are not pushed
+            # if the property is set, we only send if 
+            # WARNING : this needs to be reworked as this means
+            # that the last events before the acquisition finishes
+            # can be lost
+            if self.__events and tn < te:
+                last_base_image_ready = image_status.LastBaseImageReady
+                last_counter_ready = image_status.LastCounterReady
+                last_image_acquired = image_status.LastImageAcquired
+                last_image_ready = image_status.LastImageReady
+                last_image_saved = image_status.LastImageSaved
+
+                device = self.__device()
+                if self.__last_base_image_ready != last_base_image_ready:
+                    device.push_change_event("last_base_image_ready",
+                                             last_base_image_ready)
+                    self.__last_base_image_ready = last_base_image_ready
+                if self.__last_counter_ready != last_counter_ready:
+                    device.push_change_event("last_counter_ready",
+                                             last_counter_ready)
+                if self.__last_image_acquired != last_image_acquired:
+                    device.push_change_event("last_image_acquired",
+                                             last_image_acquired)
+                    self.__last_image_acquired = last_image_acquired
+                if self.__last_image_ready != last_image_ready:
+                    device.push_change_event("last_image_ready", last_image_ready)
+                    self.__last_image_ready = last_image_ready
+                    if (last_image_ready >= 0) and self.__image_events_push_data:
+                        control = self.__control()
+                        image = control.ReadImage(last_image_ready)
+                        category = self.DataArrayCategory.Image
+                        data = device._image_2_data_array(image, category)
+                        device.push_change_event("last_image", 'DATA_ARRAY', data)
+                if self.__last_image_saved != last_image_saved:
+                    device.push_change_event("last_image_saved",
+                                             last_image_saved)
+                    self.__last_image_saved = last_image_saved
+
+            # pushing the status if:
+            # - it has changed since the last callback call
+            # - the counters are < 0 (e.g : prepare acq)
+            # - the previous known status was None, which can happen
+            #   when:
+            #     * first frame after a server reset
+            #     * first frame after a prepareacq. This is done
+            #       so because when only one frame is acquired, the status
+            #       is "AcqRead" after the prepare, and already back to
+            #       "AcqReady" when the first and only frame comes in,
+            #       so we never see the change of status.
+            status = self.__control().getStatus().AcquisitionStatus
+            if status != self.__last_acq_status or image_status.LastImageAcquired < 0:
+                if image_status.LastImageAcquired < 0:
+                    self.__last_acq_status = None
+                else:
+                    self.__last_acq_status = status
+                self.__device().push_change_event("acq_status",
+                                                  _acqstate2string(status))
+
+            self.__last_event_time = time.time()
 
         def getImageEventsPushData(self):
             return self.__image_events_push_data
@@ -346,6 +374,7 @@ class LimaCCDs(PyTango.Device_4Impl) :
         self.__image_number_header_delimiter = ';'
         self.__readImage_frame_number = 0
         self.__configInit = False
+        print('YO')
        
 #------------------------------------------------------------------
 #    Device destructor
@@ -548,13 +577,13 @@ class LimaCCDs(PyTango.Device_4Impl) :
             shared_memory.setNames(*self.__shared_memory_names)
         except AttributeError:
             pass
-
         # INIT events on attributes
         attr_list = self.get_device_attr()
         for attr_name in ["last_image", "last_base_image_ready",
                           "last_counter_ready", "last_image_acquired",
                           "last_image_ready", "last_image_saved",
-                          "video_last_image", "video_last_image_counter"]:
+                          "video_last_image", "video_last_image_counter",
+                          "acq_status"]:
             attr = attr_list.get_attr_by_name(attr_name)
             attr.set_change_event(True, False)
         
@@ -562,9 +591,11 @@ class LimaCCDs(PyTango.Device_4Impl) :
             self.__video_image_cbk = self.VideoImageCallback(self)
             self.__control.video().registerImageCallback(self.__video_image_cbk)
 
-            # INIT events on last_image_ready
-            self.__image_status_cbk = self.ImageStatusCallback(self, self.__control)
-            self.__control.registerImageStatusCallback(self.__image_status_cbk)
+        # INIT events on last_image_ready
+        self.__image_status_cbk = self.ImageStatusCallback(self,
+                                                           self.__control,
+                                                           events=self.TangoEvent)
+        self.__control.registerImageStatusCallback(self.__image_status_cbk)
 
         # Setup a user-defined detector name if it exists
         if self.UserInstrumentName:
@@ -718,13 +749,8 @@ class LimaCCDs(PyTango.Device_4Impl) :
     @Core.DEB_MEMBER_FUNCT
     def read_acq_status(self,attr) :
         status = self.__control.getStatus()
-        state2string = {Core.AcqReady : "Ready",
-                        Core.AcqRunning : "Running",
-                        Core.AcqFault : "Fault"}
-        if SystemHasFeature('Core.AcqConfig'):
-            state2string[Core.AcqConfig] = "Configuration"
+        attr.set_value(_acqstate2string(status.AcquisitionStatus))
 
-        attr.set_value(state2string.get(status.AcquisitionStatus,"?"))
     ## @brief get the errir message when acq_status is in Fault stat
     #
     @Core.DEB_MEMBER_FUNCT
@@ -1642,24 +1668,35 @@ class LimaCCDs(PyTango.Device_4Impl) :
     @Core.DEB_MEMBER_FUNCT
     def prepareAcq(self) :
         self.__control.prepareAcq()
+        self._push_status()
+
+    ##@brief pushing the acquisition status
+    def _push_status(self):
+        status = self.__control.getStatus()
+        self.push_change_event(
+            'acq_status',
+            _acqstate2string(status.AcquisitionStatus))
 
     ##@brief start an acquisition
     #
     @Core.DEB_MEMBER_FUNCT
     def startAcq(self) :
         self.__control.startAcq()
+        self._push_status()
 
     ##@brief stop an acquisition
     #
     @Core.DEB_MEMBER_FUNCT
     def stopAcq(self) :
         self.__control.stopAcq()
+        self._push_status()
 
    ##@brief abort an acquisition
     #
     @Core.DEB_MEMBER_FUNCT
     def abortAcq(self) :
         self.__control.abortAcq()
+        self._push_status()
 
     ##@brief reset acquisition
     #
@@ -1670,7 +1707,7 @@ class LimaCCDs(PyTango.Device_4Impl) :
         if self.__configDefaultActiveFlag:
             config = self.__control.config()
             config.apply(self.ConfigurationDefaultName)
-
+        self._push_status()
 
     ##@brief set images heaaders
     #
@@ -2626,6 +2663,14 @@ def _video_image_2_struct(image):
             0,0)                                  # padding
 
     return videoheader + image.buffer()
+
+def _acqstate2string(state):
+    state2string = {Core.AcqReady : "Ready",
+                    Core.AcqRunning : "Running",
+                    Core.AcqFault : "Fault"}
+    if SystemHasFeature('Core.AcqConfig'):
+        state2string[Core.AcqConfig] = "Configuration"
+    return state2string.get(state, "?")
 
 def _get_control():
     global control
