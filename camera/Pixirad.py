@@ -49,8 +49,12 @@ from Lima import Pixirad as PixiradModule
 from AttrHelper import get_attr_4u, get_attr_string_value_list
 #import AttrHelper
 
-class Pixirad(PyTango.Device_4Impl):
-    Core.DEB_CLASS(Core.DebModApplication, 'LimaCCDs')
+import time
+
+
+
+# class Pixirad(PyTango.Device_4Impl):
+#     Core.DEB_CLASS(Core.DebModApplication, 'LimaCCDs')
     
     
 class Pixirad(PyTango.Device_4Impl):
@@ -127,10 +131,18 @@ class Pixirad(PyTango.Device_4Impl):
 			    
 	#__Attribute2FunctionBase		????    
 	  
+
+
+
+        self.__Attribute2FunctionBase = {'box_humidity':'BoxHumidity'}
+
+
         self.init_device()
-        
-        
-       
+
+
+
+
+
 ############## DESTRUCTOR ###################
     def delete_device(self):
         # Detruire camera et HWinterface ?
@@ -143,6 +155,9 @@ class Pixirad(PyTango.Device_4Impl):
         # Load the properties
         self.get_device_properties(self.get_device_class())
 
+
+        print("Test of accessing dict: "+str(_PixiradCamera.getBoxTemperature()))
+
         # Apply property to the attributes
         ### Default Values
         
@@ -154,11 +169,13 @@ class Pixirad(PyTango.Device_4Impl):
 
 ############## RW Attributes methods ###################
 ### Call directly set/get 
-    def __getattr__(self,name) :      
+    def __getattr__(self,name) :   
+        print("\n\ngetATTR NAME : "+name)
         try:  
-	  return get_attr_4u(self, name, _PixiradInterface)
-        except:
-	  return get_attr_4u(self, name, _PixiradCamera)
+            return get_attr_4u(self, name, _PixiradInterface)
+        except Exception as e:
+            print("Interface attr failed with %s, going for Camera "%str(e))
+            return get_attr_4u(self, name, _PixiradCamera)
         
         
 
@@ -269,7 +286,7 @@ class PixiradClass(PyTango.DeviceClass):
              'description':"Delay for the hv before acquisition.",
          }]  ,
         'h_v_refresh_period':
-        [[PyTango.DevShort,
+        [[PyTango.DevDouble,
           PyTango.SCALAR,
           PyTango.READ_WRITE],
          {
@@ -441,6 +458,7 @@ class PixiradClass(PyTango.DeviceClass):
         self.set_type(name)
 
 
+
 #----------------------------------------------------------------------------
 #                              Plugins
 #----------------------------------------------------------------------------
@@ -459,6 +477,7 @@ def get_control(ip_address = '192.168.0.1',port_number='6666', initial_model = '
         _PixiradCamera = PixiradModule.Camera(ip_address, int(port_number), initial_model)
         _PixiradInterface = PixiradModule.Interface(_PixiradCamera)
         
+
     return Core.CtControl(_PixiradInterface)
 
     
