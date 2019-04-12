@@ -48,7 +48,7 @@ import PyTango
 import sys
 
 from Lima import Core
-from AttrHelper import get_attr_4u, get_attr_string_value_list
+from Lima.Server import AttrHelper
 
 #==================================================================
 #   Eiger Class Description:
@@ -105,7 +105,7 @@ class Eiger(PyTango.Device_4Impl):
 #------------------------------------------------------------------
     @Core.DEB_MEMBER_FUNCT
     def getAttrStringValueList(self, attr_name):
-        return get_attr_string_value_list(self,attr_name)
+        return AttrHelper.get_attr_string_value_list(self,attr_name)
 #----------------------------------------------------------------------------
 #                      delete all memory files
 #----------------------------------------------------------------------------
@@ -119,7 +119,7 @@ class Eiger(PyTango.Device_4Impl):
 #
 #==================================================================
     def __getattr__(self,name) :
-        return get_attr_4u(self,name,_EigerCamera)
+        return AttrHelper.get_attr_4u(self,name,_EigerCamera)
 
 #==================================================================
 #

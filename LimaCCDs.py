@@ -2,10 +2,11 @@
 ############################################################################
 # This file is part of LImA, a Library for Image Acquisition
 #
-# Copyright (C) : 2009-2015
+# Copyright (C) : 2009-2017
 # European Synchrotron Radiation Facility
-# BP 220, Grenoble 38043
+# CS40220 38043 Grenoble Cedex 9 
 # FRANCE
+# Contact: lima@esrf.fr
 #
 # This is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -51,28 +52,28 @@ import numpy
 import struct
 import time
 import re
-
+import six
 
 # Before loading Lima.Core, must find out the version the plug-in
 # was compiled with - horrible hack ...
 LimaCameraType = None
-if 'linux' in sys.platform:
-    from EnvHelper import setup_lima_env
-    LimaCameraType = setup_lima_env(sys.argv)
+#if 'linux' in sys.platform:
+#    from EnvHelper import setup_lima_env
+#    LimaCameraType = setup_lima_env(sys.argv)
 
-from EnvHelper import get_sub_devices
-from EnvHelper import get_lima_camera_type, get_lima_device_name
-from EnvHelper import create_tango_objects
-from AttrHelper import get_attr_4u
-from AttrHelper import _getDictKey, _getDictValue
+from .EnvHelper import get_sub_devices
+from .EnvHelper import get_lima_camera_type, get_lima_device_name
+from .EnvHelper import create_tango_objects
+from .AttrHelper import get_attr_4u
+from Lima.Server.AttrHelper import getDictKey, getDictValue
 from Lima import Core
 
-import plugins
-import camera
-try:
-    import EdfFile
-except ImportError:
-    EdfFile = None
+from Lima.Server import plugins
+from Lima.Server import camera
+if len(sys.argv) >1: instance_name=sys.argv[1]
+else: instance_name = ''
+
+from Lima.Server import EdfFile
     
 TacoSpecificDict = {}
 TacoSpecificName = []
@@ -236,7 +237,7 @@ class LimaCCDs(PyTango.Device_4Impl) :
 
     DataArrayVersion = 2
     DataArrayPackStr = '<IHHIIHHHHHHHHIIIIIIII'
-    DataArrayMagic = struct.unpack('>I', 'DTAY')[0]	# 0x44544159
+    DataArrayMagic = struct.unpack('>I', b'DTAY')[0]	# 0x44544159
     DataArrayHeaderLen = 64
     DataArrayMaxNbDim = 6
 
@@ -352,7 +353,7 @@ class LimaCCDs(PyTango.Device_4Impl) :
     @Core.DEB_MEMBER_FUNCT
     def delete_device(self) :
         try:
-            m = __import__('camera.%s' % (self.LimaCameraType),None,None,'camera.%s' % (self.LimaCameraType))
+            m = __import__('Lima.Server.camera.%s' % (self.LimaCameraType),None,None,'Lima.Server.camera.%s' % (self.LimaCameraType))
         except ImportError:
             pass
         else:
@@ -374,12 +375,14 @@ class LimaCCDs(PyTango.Device_4Impl) :
 
         self.__control = _get_control()
 
-        try:
-            nb_thread = int(self.NbProcessingThread)
-        except ValueError:
-            pass
-        else:
-            Core.Processlib.PoolThreadMgr.get().setNumberOfThread(nb_thread)
+        # For performance settings Pool thread (default 2) and Writing tasks (default 1)
+        nb_thread = int(self.NbProcessingThread)
+        Core.Processlib.PoolThreadMgr.get().setNumberOfThread(nb_thread)
+
+        max_concurrent_writing_task = int(self.SavingMaxConcurrentWritingTask)
+        if SystemHasFeature('Core.CtSaving.setMaxConcurrentWritingTask'):
+            saving = self.__control.saving()
+            saving.setMaxConcurrentWritingTask(max_concurrent_writing_task)
 
         interface = self.__control.hwInterface()
         self.__detinfo = interface.getHwCtrlObj(Core.HwCap.DetInfo)
@@ -392,8 +395,8 @@ class LimaCCDs(PyTango.Device_4Impl) :
             pass
         else:
             try:
-                m = __import__('plugins.%s' % (accThresholdCallbackModule),None,None,
-                               'plugins.%s' % (accThresholdCallbackModule))
+                m = __import__('Lima.Server.plugins.%s' % (accThresholdCallbackModule),None,None,
+                               'Lima.Server.plugins.%s' % (accThresholdCallbackModule))
             except ImportError:
                 deb.Error("Couldn't import plugins.%s" % accThresholdCallbackModule)
             else:
@@ -433,13 +436,12 @@ class LimaCCDs(PyTango.Device_4Impl) :
                                   'buffer' : self.__control.buffer}
 
         self.__Attribute2FunctionBase = {'acq_trigger_mode':'TriggerMode',
-                                         'saving_overwrite_policy' : 'OverwritePolicy',
-                                         'saving_format' : 'Format',
                                          'saving_managed_mode' : 'ManagedMode',
                                          'shutter_mode' : 'Mode',
 					 'image_rotation':'Rotation',
                                          'video_mode':'Mode',
                                          'buffer_max_memory': 'MaxMemory',
+                                         'buffer_max_number': 'MaxNumber',
                                          'acc_mode': 'Mode',
                                          'acc_threshold_before': 'ThresholdBefore',
                                          'acc_offset_before': 'OffsetBefore'}
@@ -462,26 +464,11 @@ class LimaCCDs(PyTango.Device_4Impl) :
         self.__SavingManagedMode = {'SOFTWARE' : Core.CtSaving.Software,
                                     'HARDWARE' : Core.CtSaving.Hardware}
 
-        self.__SavingFormat = {'RAW' : Core.CtSaving.RAW,
-                               'EDF' : Core.CtSaving.EDF,
-                               'CBF' : Core.CtSaving.CBFFormat}
+        # default saving stream
+        self.__SavingStream = 0;
 
-        self.__SavingFormatDefaultSuffix = {Core.CtSaving.RAW : '.raw',
-                                            Core.CtSaving.EDF : '.edf',
-                                            Core.CtSaving.CBFFormat : '.cbf'}
-
-        if SystemHasFeature('Core.CtSaving.TIFFFormat'):
-            self.__SavingFormat['TIFF'] = Core.CtSaving.TIFFFormat
-            self.__SavingFormatDefaultSuffix[Core.CtSaving.TIFFFormat] = '.tiff'
-        if SystemHasFeature('Core.CtSaving.EDFGZ'):
-            self.__SavingFormat['EDFGZ'] = Core.CtSaving.EDFGZ
-            self.__SavingFormatDefaultSuffix[Core.CtSaving.EDFGZ] = '.edfgz'
-        if SystemHasFeature('Core.CtSaving.HDF5'):
-            self.__SavingFormat['HDF5'] = Core.CtSaving.HDF5
-            self.__SavingFormatDefaultSuffix[Core.CtSaving.HDF5] = '.h5'
-        if SystemHasFeature('Core.CtSaving.EDFConcat'):
-            self.__SavingFormat['EDFCONCAT'] = Core.CtSaving.EDFConcat
-            self.__SavingFormatDefaultSuffix[Core.CtSaving.EDFConcat] = '.edf'
+        saving = self.__control.saving()
+        self.__SavingFormat = saving.getFormatListAsString()
 
         self.__SavingMode = {'MANUAL' : Core.CtSaving.Manual,
                              'AUTO_FRAME' : Core.CtSaving.AutoFrame,
@@ -538,10 +525,17 @@ class LimaCCDs(PyTango.Device_4Impl) :
             import traceback
             traceback.print_exc()
 
-	if SystemHasFeature('Core.BAYER_BG8'):
-	    self.__VideoMode['BAYER_BG8'] = Core.BAYER_BG8
-	    self.__VideoMode['BAYER_BG16'] = Core.BAYER_BG16
+        if SystemHasFeature('Core.BAYER_BG8'):
+            self.__VideoMode['BAYER_BG8'] = Core.BAYER_BG8
+            self.__VideoMode['BAYER_BG16'] = Core.BAYER_BG16
 
+        #new formats added in core 1.7
+        if SystemHasFeature('Core.YUV411PACKED'):
+            self.__VideoMode['YUV411PACKED'] = Core.YUV411PACKED
+            self.__VideoMode['YUV422PACKED'] = Core.YUV422PACKED
+            self.__VideoMode['YUV444PACKED'] = Core.YUV444PACKED
+
+        
         self.__VideoSource = {}
         if SystemHasFeature('Core.CtVideo.BASE_IMAGE'):
             self.__VideoSource = {'BASE_IMAGE': Core.CtVideo.BASE_IMAGE,
@@ -549,7 +543,7 @@ class LimaCCDs(PyTango.Device_4Impl) :
 
         #INIT display shared memory
         try:
-            self.__shared_memory_names = ['LimaCCds',sys.argv[1]]
+            self.__shared_memory_names = ['LimaCCds',instance_name]
             shared_memory = self.__control.display()
             shared_memory.setNames(*self.__shared_memory_names)
         except AttributeError:
@@ -573,11 +567,11 @@ class LimaCCDs(PyTango.Device_4Impl) :
             self.__control.registerImageStatusCallback(self.__image_status_cbk)
 
         # Setup a user-defined detector name if it exists
-        if self.InstrumentName:
-            if SystemHasFeature('Core.HwDetInfoCtrlObj.setInstrumentName'):
-                self.__detinfo.setInstrumentName(self.InstrumentName)
+        if self.UserInstrumentName:
+            if SystemHasFeature('Core.HwDetInfoCtrlObj.setUserInstrumentName'):
+                self.__detinfo.setUserInstrumentName(self.UserInstrumentName)
             else:
-                deb.Warning('InstrumentName not supported in this version')
+                deb.Warning('UserInstrumentName not supported in this version')
 
         # Setup a user-defined detector name if it exists
         if self.UserDetectorName:
@@ -622,8 +616,8 @@ class LimaCCDs(PyTango.Device_4Impl) :
         raise AttributeError('LimaCCDs has no attribute %s' % name)
 
     def gc(self):
-    	import gc
-	gc.collect()
+        import gc
+        gc.collect()
 
     @Core.DEB_MEMBER_FUNCT
     def apply_config(self) :
@@ -685,8 +679,8 @@ class LimaCCDs(PyTango.Device_4Impl) :
     @RequiresSystemFeature('Core.HwDetInfoCtrlObj.getUserDetectorName')
     @Core.DEB_MEMBER_FUNCT
     def read_user_detector_name(self,attr) :        
-	value = self.__detinfo.getUserDetectorName() 
-	attr.set_value(value)
+        value = self.__detinfo.getUserDetectorName() 
+        attr.set_value(value)
 
     ## @brief Write the User-defined Camera name
     #
@@ -696,21 +690,21 @@ class LimaCCDs(PyTango.Device_4Impl) :
         data = attr.get_write_value()
         self.__detinfo.setUserDetectorName(data)
         
-    ## @brief Read the instrument name
+    ## @brief Read the user instrument name
     #
-    @RequiresSystemFeature('Core.HwDetInfoCtrlObj.getInstrumentName')
+    @RequiresSystemFeature('Core.HwDetInfoCtrlObj.getUserInstrumentName')
     @Core.DEB_MEMBER_FUNCT
-    def read_instrument_name(self,attr) :        
-	value = self.__detinfo.getInstrumentName() 
-	attr.set_value(value)
+    def read_user_instrument_name(self,attr) :        
+        value = self.__detinfo.getUserInstrumentName() 
+        attr.set_value(value)
 
-    ## @brief Write the instrument name
+    ## @brief Write the user instrument name
     #
-    @RequiresSystemFeature('Core.HwDetInfoCtrlObj.setInstrumentName')
+    @RequiresSystemFeature('Core.HwDetInfoCtrlObj.setUserInstrumentName')
     @Core.DEB_MEMBER_FUNCT
-    def write_instrument_name(self,attr) :
+    def write_user_instrument_name(self,attr) :
         data = attr.get_write_value()
-        self.__detinfo.setInstrumentName(data)
+        self.__detinfo.setUserInstrumentName(data)
 
     ## @brief Read the Camera pixelsize
     #
@@ -886,7 +880,6 @@ class LimaCCDs(PyTango.Device_4Impl) :
     @Core.DEB_MEMBER_FUNCT
     def write_acc_saturated_threshold(self,attr) :        
         data = attr.get_write_value()
-
         acc = self.__control.accumulation()
         acc.setPixelThresholdValue(data)
 
@@ -899,7 +892,7 @@ class LimaCCDs(PyTango.Device_4Impl) :
         else:
             msg = "Accumulation threshold plugins not loaded"
             deb.Error(msg)
-            raise Exception, msg
+            raise Exception(msg)
 
     ## @brief active/unactive calculation of saturated images and counters
     #
@@ -1048,7 +1041,7 @@ class LimaCCDs(PyTango.Device_4Impl) :
     def read_saving_common_header(self,attr) :
         saving = self.__control.saving()
         header = saving.getCommonHeader()
-        headerArr = ['%s%s%s' % (k,self.__key_header_delimiter,v) for k,v in header.iteritems()]
+        headerArr = ['%s%s%s' % (k,self.__key_header_delimiter,v) for k,v in six.iteritems(header)]
         attr.set_value(headerArr,len(headerArr))
 
     ## @brief Write common header
@@ -1095,8 +1088,10 @@ class LimaCCDs(PyTango.Device_4Impl) :
         status = self.__control.getStatus()
         last_img_ready = status.ImageCounters.LastImageReady
         image = self.__control.ReadImage(last_img_ready)
-        data = self._image_2_data_array(image, self.DataArrayCategory.Image)
-        attr.set_value('DATA_ARRAY', data)
+        # workaround for PyTango #147
+        self._lidata = self._image_2_data_array(
+            image, self.DataArrayCategory.Image)
+        attr.set_value('DATA_ARRAY', self._lidata)
 
     ## @brief last image acquired
     #
@@ -1190,7 +1185,8 @@ class LimaCCDs(PyTango.Device_4Impl) :
     def read_ready_for_next_image(self,attr) :
         interface = self.__control.hwInterface()
         status = interface.getStatus()
-        attr.set_value(status.det == Core.DetIdle)
+        ready = status.det == Core.DetIdle or status.det & Core.DetWaitForTrigger
+        attr.set_value(bool(ready))
 
     ## @brief this flag is true when acquisition is finished
     #
@@ -1202,15 +1198,27 @@ class LimaCCDs(PyTango.Device_4Impl) :
     
     ## @brief read write statistic
     #
+    # return saving_speed,compression_speed, compression_ratio,incoming_speed
     @Core.DEB_MEMBER_FUNCT
-    def read_write_statistic(self,attr) :
+    def read_saving_statistics(self,attr) :
         saving = self.__control.saving()
-        stat = saving.getWriteTimeStatistic()
-        if not len(stat) :
-            attr.set_value([-1],1)
-        else:
-            attr.set_value(stat,len(stat))
+        attr.set_value(saving.getStatisticCounters(),4)
 	
+    ## @brief get the write statistics history size
+    #
+    @Core.DEB_MEMBER_FUNCT
+    def read_saving_statistics_history(self,attr) :
+        saving = self.__control.saving()
+        attr.set_value(saving.getStatisticHistorySize())
+
+    
+    ## @brief set the write statistics history size
+    #
+    @Core.DEB_MEMBER_FUNCT
+    def write_saving_statistics_history(self,attr) :
+        stat_size = attr.get_write_value()
+        saving = self.__control.saving()
+        saving.setStatisticHistorySize(stat_size)
 
     ## @brief Write current shutter state if in manual mode
     # True-Open, False-Close
@@ -1290,19 +1298,19 @@ class LimaCCDs(PyTango.Device_4Impl) :
     def read_saving_directory(self,attr) :
         saving = self.__control.saving()
 
-        attr.set_value(saving.getDirectory())
+        attr.set_value(saving.getDirectory(self.__SavingStream))
 
     @Core.DEB_MEMBER_FUNCT
     def write_saving_directory(self,attr) :
         data = attr.get_write_value()
         saving = self.__control.saving()
-        saving.setDirectory(data)
+        saving.setDirectory(data, self.__SavingStream)
 
     @Core.DEB_MEMBER_FUNCT
     def read_saving_prefix(self,attr) :
         saving = self.__control.saving()
 
-        attr.set_value(saving.getPrefix())
+        attr.set_value(saving.getPrefix(self.__SavingStream))
 
     @Core.DEB_MEMBER_FUNCT
     def write_saving_prefix(self,attr) :
@@ -1310,74 +1318,122 @@ class LimaCCDs(PyTango.Device_4Impl) :
         saving = self.__control.saving()
         prefix = data
 
-        directory = saving.getDirectory()
-        suffix = saving.getSuffix()
-        overwritePolicy = saving.getOverwritePolicy()
+        directory = saving.getDirectory(self.__SavingStream)
+        suffix = saving.getSuffix(self.__SavingStream)
+        overwritePolicy = saving.getOverwritePolicy(self.__SavingStream)
         if overwritePolicy == Core.CtSaving.Abort:
             matchFiles = glob.glob(os.path.join(directory,'%s*%s' % (prefix,suffix)))
             lastnumber = _getLastFileNumber(prefix,suffix,matchFiles)
         else:
             lastnumber = -1
-        saving.setPrefix(prefix)
-        saving.setNextNumber(lastnumber + 1)
+        saving.setPrefix(prefix, self.__SavingStream)
+        saving.setNextNumber(lastnumber + 1, self.__SavingStream)
 
     @Core.DEB_MEMBER_FUNCT
     def read_saving_suffix(self,attr) :
         saving = self.__control.saving()
 
-        attr.set_value(saving.getSuffix())
+        attr.set_value(saving.getSuffix(self.__SavingStream))
 
     @Core.DEB_MEMBER_FUNCT
     def write_saving_suffix(self,attr) :
         data = attr.get_write_value()
         saving = self.__control.saving()
 
-        saving.setSuffix(data)
+        saving.setSuffix(data, self.__SavingStream)
 
     @Core.DEB_MEMBER_FUNCT
     def read_saving_next_number(self,attr) :
         saving = self.__control.saving()
 
-        attr.set_value(saving.getNextNumber())
+        attr.set_value(saving.getNextNumber(self.__SavingStream))
 
     @Core.DEB_MEMBER_FUNCT
     def write_saving_next_number(self,attr) :
         data = attr.get_write_value()
         saving = self.__control.saving()
 
-        saving.setNextNumber(data)
+        saving.setNextNumber(data, self.__SavingStream)
 
     @Core.DEB_MEMBER_FUNCT
     def read_saving_frame_per_file(self,attr) :
         saving = self.__control.saving()
 
-        attr.set_value(saving.getFramesPerFile())
+        attr.set_value(saving.getFramesPerFile(self.__SavingStream))
 
     @Core.DEB_MEMBER_FUNCT
     def write_saving_frame_per_file(self,attr) :
         data = attr.get_write_value()
         saving = self.__control.saving()
 
-        saving.setFramesPerFile(data)
+        saving.setFramesPerFile(data, self.__SavingStream)
         
-    ## @brief Change the saving Format
-    #
+    @Core.DEB_MEMBER_FUNCT
+    def read_saving_format(self,attr) :
+        saving = self.__control.saving()
+        attr.set_value(saving.getFormatAsString(self.__SavingStream))
+
     @Core.DEB_MEMBER_FUNCT
     def write_saving_format(self,attr) :
         data = attr.get_write_value()
+        value = data.upper()
         saving = self.__control.saving()
 
-        value = _getDictValue(self.__SavingFormat,data.upper())
-        if value is None:
+        if not value in self.__SavingFormat:
             PyTango.Except.throw_exception('WrongData',\
-                                           'Wrong value %s: %s'%('saving_format',data.upper()),\
+                                           'Wrong value %s: %s'%('saving_format', value),\
                                            'LimaCCD Class')
         else:
-            saving.setFormat(value)
-            defaultSuffix = self.__SavingFormatDefaultSuffix.get(value,'.unknown')
-            saving.setSuffix(defaultSuffix)
+            saving.setFormatAsString(value, self.__SavingStream)
+            saving.setFormatSuffix(self.__SavingStream)
 
-    ##@biref Read possible modules
+    @Core.DEB_MEMBER_FUNCT
+    def read_saving_overwrite_policy(self, attr) :
+        saving = self.__control.saving()
+        attr.set_value(getDictKey(self.__SavingOverwritePolicy, saving.getOverwritePolicy(self.__SavingStream)))
+
+    @Core.DEB_MEMBER_FUNCT
+    def write_saving_overwrite_policy(self, attr) :
+        data = attr.get_write_value()
+        saving = self.__control.saving()
+        value = getDictValue(self.__SavingOverwritePolicy,data.upper())
+        if value is None:
+            PyTango.Except.throw_exception('WrongData',\
+                                           'Wrong value %s: %s'%('saving_overwrite_policy',data.upper()),\
+                                           'LimaCCD Class')
+        else:
+            saving.setOverwritePolicy(value, self.__SavingStream)
+
+    @Core.DEB_MEMBER_FUNCT
+    def read_saving_stream_active(self, attr) :
+        saving = self.__control.saving()
+        attr.set_value(saving.getStreamActive(self.__SavingStream))
+
+    @Core.DEB_MEMBER_FUNCT
+    def write_saving_stream_active(self, attr) :
+        data = attr.get_write_value()
+        saving = self.__control.saving()
+        saving.setStreamActive(self.__SavingStream, data)
+
+    ## @brief get the maximum number of task for concurrent writing (saving)
+    #
+    @RequiresSystemFeature('Core.CtSaving.setMaxConcurrentWritingTask')
+    @Core.DEB_MEMBER_FUNCT
+    def read_saving_max_writing_task(self, attr):
+        saving = self.__control.saving()
+        attr.set_value(saving.getMaxConcurrentWritingTask())
+        
+    ## @brief set the maximum number of task for concurrent writing (saving)
+    #
+    @RequiresSystemFeature('Core.CtSaving.getMaxConcurrentWritingTask')
+    @Core.DEB_MEMBER_FUNCT
+    def write_saving_max_writing_task(self,attr) :
+        data = attr.get_write_value()
+        saving = self.__control.saving()
+
+        saving.setMaxConcurrentWritingTask(data)
+
+    ##@brief Read possible modules
     #
     def read_debug_modules_possible(self,attr) :
         attr.set_value(LimaCCDs._debugModuleList,len(LimaCCDs._debugModuleList))
@@ -1503,7 +1559,7 @@ class LimaCCDs(PyTango.Device_4Impl) :
 
     def read_plugin_list(self,attr) :
         returnList = []
-        for key,value in get_sub_devices().iteritems():
+        for key,value in six.iteritems(get_sub_devices()):
             returnList.append(key.lower().replace('deviceserver',''))
             returnList.append(value)
         attr.set_value(returnList)
@@ -1511,7 +1567,7 @@ class LimaCCDs(PyTango.Device_4Impl) :
     def read_shared_memory_names(self,attr) :
         try:
             shared_memory = self.__control.display()
-	    shared_memory_names= shared_memory.getNames()
+            shared_memory_names= shared_memory.getNames()
         except:
             shared_memory_names = ['', '']
         attr.set_value(shared_memory_names)
@@ -1559,23 +1615,25 @@ class LimaCCDs(PyTango.Device_4Impl) :
             if shutter.hasCapability():
                 #Depending of the camera only a subset of the mode list can be supported
                 values = shutter.getModeList()
-                valueList = [_getDictKey(self.__ShutterMode,val) for val in values]
+                valueList = [getDictKey(self.__ShutterMode,val) for val in values]
         elif attr_name == 'video_mode':
             video = self.__control.video()
             values = video.getSupportedVideoMode()
-            valueList = [_getDictKey(self.__VideoMode,val) for val in values]
+            valueList = [getDictKey(self.__VideoMode,val) for val in values]
         elif attr_name == 'acq_trigger_mode':
             acq = self.__control.acquisition()
             try:
                 values = acq.getTriggerModeList()
-                valueList = [_getDictKey(self.__AcqTriggerMode,val) for val in values]
+                valueList = [getDictKey(self.__AcqTriggerMode,val) for val in values]
             except:
-                valueList = self.__AcqTriggerMode.keys()
+                valueList = list(self.__AcqTriggerMode.keys())
+        elif attr_name == "saving_format":
+            return self.__SavingFormat
         else:
             dict_name = '_' + self.__class__.__name__ + '__' + ''.join([x.title() for x in attr_name.split('_')])
             d = getattr(self,dict_name,None)
             if d:
-                valueList = d.keys()
+                valueList = list(d.keys())
 
         return valueList
 
@@ -1596,6 +1654,12 @@ class LimaCCDs(PyTango.Device_4Impl) :
     @Core.DEB_MEMBER_FUNCT
     def stopAcq(self) :
         self.__control.stopAcq()
+
+   ##@brief abort an acquisition
+    #
+    @Core.DEB_MEMBER_FUNCT
+    def abortAcq(self) :
+        self.__control.abortAcq()
 
     ##@brief reset acquisition
     #
@@ -1642,6 +1706,14 @@ class LimaCCDs(PyTango.Device_4Impl) :
         saving = control.saving()
         saving.resetCommonHeader()
 
+    ##@brief reset frames header
+    #
+    @Core.DEB_MEMBER_FUNCT
+    def resetFrameHeaders(self):
+        control = self.__control
+        saving = control.saving()
+        saving.removeAllFrameHeaders()
+
     ##@brief get image data
     #
     @Core.DEB_MEMBER_FUNCT
@@ -1665,7 +1737,7 @@ class LimaCCDs(PyTango.Device_4Impl) :
         nbDim = len(s)
         maxNbDim = self.DataArrayMaxNbDim
         if nbDim > maxNbDim:
-            raise ValueError, 'Invalid nb of dimensions: max is %d' % maxNbDim
+            raise ValueError('Invalid nb of dimensions: max is %d' % maxNbDim)
 
         image = self.__control.image()
         imageType = image.getImageType()
@@ -1696,8 +1768,8 @@ class LimaCCDs(PyTango.Device_4Impl) :
           t[0],t[1],t[2],t[3],t[4],t[5],        # 24 bytes I x 6 - stepsbytes
           0, 0)    				# padding 2 x 4 bytes
         if len(dataheader) != self.DataArrayHeaderLen:
-            raise RuntimeError, 'Invalid header len: %d (expected %d)' % \
-                  (len(dataheader), self.DataArrayHeaderLen)
+            raise RuntimeError('Invalid header len: %d (expected %d)' % \
+                  (len(dataheader), self.DataArrayHeaderLen))
 
         flatData = d.ravel()
         flatData.dtype = numpy.uint8
@@ -1731,7 +1803,7 @@ class LimaCCDs(PyTango.Device_4Impl) :
         if len(frame_seq) > 2:
             step = frame_seq[2]
             if step != 1:
-                raise ValueError, 'Discontiguous sequences not supported yet'
+                raise ValueError('Discontiguous sequences not supported yet')
         nbFrames = end - start
         deb.Param('readImageSeq:start,end,step = %d,%d,%d (%d frames)' % \
 
@@ -1832,7 +1904,7 @@ class LimaCCDs(PyTango.Device_4Impl) :
 
     @Core.DEB_MEMBER_FUNCT
     def getPluginDeviceNameFromType(self,pluginType):
-        pluginType2deviceName = dict([(x.lower().replace('deviceserver',''),y) for x,y in get_sub_devices().iteritems()])
+        pluginType2deviceName = dict([(x.lower().replace('deviceserver',''),y) for x,y in six.iteritems(get_sub_devices())])
         return pluginType2deviceName.get(pluginType.lower(),'')
 
 #----------------------------------------------------------------------------
@@ -1869,6 +1941,10 @@ class LimaCCDs(PyTango.Device_4Impl) :
         config = self.__control.config()
         config.load()
 
+    @Core.DEB_MEMBER_FUNCT
+    def setSavingStream(self, streamNb) :
+        self.__SavingStream = streamNb
+
 #==================================================================
 #
 #    LimaCCDsClass class definition
@@ -1893,7 +1969,7 @@ class LimaCCDsClass(PyTango.DeviceClass) :
          "Plugin name file which manage threshold",[]],
         'ConfigurationFilePath' :
         [PyTango.DevString,
-         "Configuration file path",[os.path.join(os.path.expanduser('~'),'lima_%s.cfg' % sys.argv[1])]],
+         "Configuration file path",[os.path.join(os.path.expanduser('~'),'lima_%s.cfg' % instance_name)]],
         'ConfigurationDefaultName' :
         [PyTango.DevString,
          "Default configuration name",["default"]],
@@ -1903,15 +1979,18 @@ class LimaCCDsClass(PyTango.DeviceClass) :
         'UserDetectorName' :
         [PyTango.DevString,
          "A user detector identifier, e.g frelon-saxs",[]],
-        'InstrumentName' :
+        'UserInstrumentName' :
         [PyTango.DevString,
-         "The instrument name, ESRF-ID02",[]],
+         "The instrument name, e.g ESRF-ID02",[]],
         'BufferMaxMemory' :
          [PyTango.DevString,
           "The maximum among of memory (RAM) Lima should use to allocate the frame buffers, e.g 50 %, default is 70%",[]],
         'TangoEvent' :
         [PyTango.DevBoolean,
          "Activate Tango event",[False]],
+        'SavingMaxConcurrentWritingTask':
+        [PyTango.DevShort,
+         "Maximum concurrent writing tasks",[1]],
         }
 
     #    Command definitions
@@ -1937,6 +2016,9 @@ class LimaCCDsClass(PyTango.DeviceClass) :
         'stopAcq':
         [[PyTango.DevVoid,""],
          [PyTango.DevVoid,""]],
+        'abortAcq':
+        [[PyTango.DevVoid,""],
+         [PyTango.DevVoid,""]],
         'reset':
         [[PyTango.DevVoid,""],
          [PyTango.DevVoid,""]],
@@ -1944,6 +2026,9 @@ class LimaCCDsClass(PyTango.DeviceClass) :
         [[PyTango.DevVarStringArray,"ImageId0 SEPARATOR imageHeader0,ImageId1 SEPARATOR imageHeader1..."],
          [PyTango.DevVoid,""]],
         'resetCommonHeader':
+        [[PyTango.DevVoid,""],
+         [PyTango.DevVoid,""]],
+        'resetFrameHeaders':
         [[PyTango.DevVoid,""],
          [PyTango.DevVoid,""]],
         'getImage':
@@ -1991,6 +2076,9 @@ class LimaCCDsClass(PyTango.DeviceClass) :
         'configFileLoad':
         [[PyTango.DevVoid,""],
          [PyTango.DevVoid,""]],
+        'setSavingStream':
+        [[PyTango.DevLong,"Stream number"],
+         [PyTango.DevVoid,""]],
 	}
     
     #    Attribute definitions
@@ -2015,7 +2103,7 @@ class LimaCCDsClass(PyTango.DeviceClass) :
              'label': "user detector name",
              'description':"A user defined detector name, will be saved in the saved file header",
          }],
-        'instrument_name':
+        'user_instrument_name':
         [[PyTango.DevString,
           PyTango.SCALAR,
           PyTango.READ_WRITE],
@@ -2207,10 +2295,6 @@ class LimaCCDsClass(PyTango.DeviceClass) :
         [[PyTango.DevBoolean,
           PyTango.SCALAR,
           PyTango.READ]],
-        'write_statistic':
-        [[PyTango.DevDouble,
-          PyTango.SPECTRUM,
-          PyTango.READ,256]],
         'shutter_mode':
         [[PyTango.DevString,
           PyTango.SCALAR,
@@ -2275,6 +2359,22 @@ class LimaCCDsClass(PyTango.DeviceClass) :
 	[[PyTango.DevString,
 	  PyTango.SCALAR,
 	  PyTango.READ_WRITE]],
+        'saving_statistics':
+        [[PyTango.DevDouble,
+          PyTango.SPECTRUM,
+          PyTango.READ,4]],
+        'saving_statistics_history':
+        [[PyTango.DevLong,
+          PyTango.SCALAR,
+          PyTango.READ_WRITE]],
+        'saving_max_writing_task':
+        [[PyTango.DevShort,
+          PyTango.SCALAR,
+          PyTango.READ_WRITE]],
+        'saving_stream_active':
+        [[PyTango.DevBoolean,
+          PyTango.SCALAR,
+          PyTango.READ_WRITE]],
         'debug_modules_possible':
          [[PyTango.DevString,
           PyTango.SPECTRUM,
@@ -2367,6 +2467,10 @@ class LimaCCDsClass(PyTango.DeviceClass) :
         [[PyTango.DevShort,
           PyTango.SCALAR,
           PyTango.READ_WRITE]],
+        'buffer_max_number':
+        [[PyTango.DevLong,
+          PyTango.SCALAR,
+          PyTango.READ]],
         }
 
 
@@ -2375,7 +2479,7 @@ def declare_camera_n_commun_to_tango_world(util) :
         try:
             if LimaCameraType and (module_name != LimaCameraType):
                 continue
-            m = __import__('camera.%s' % (module_name),None,None,'camera.%s' % (module_name))
+            m = __import__('Lima.Server.camera.%s' % (module_name),None,None,'Lima.Server.camera.%s' % (module_name))
         except ImportError:
             continue
         else:
@@ -2396,14 +2500,14 @@ def declare_camera_n_commun_to_tango_world(util) :
     warningFlag = False
     for module_name in plugins.__all__:
         try:
-            m = __import__('plugins.%s' % (module_name),None,None,'plugins.%s' % (module_name))
+            m = __import__('Lima.Server.plugins.%s' % (module_name),None,None,'Lima.Server.plugins.%s' % (module_name))
         except ImportError:
-            print "Warning optional plugin %s can't be load, dependency not satisfied." % module_name
+            print ("Warning optional plugin %s can't be load, dependency not satisfied." % module_name)
             warningFlag = True
             if verboseLevel >= 4:
                 import traceback
                 traceback.print_exc()
-                print
+                print ()
             continue
         else:
             if 'Taco' in module_name:
@@ -2420,8 +2524,8 @@ def declare_camera_n_commun_to_tango_world(util) :
                 specificClass,specificDevice = func()
                 util.add_TgClass(specificClass,specificDevice,specificDevice.__name__)
     if warningFlag and verboseLevel < 4:
-        print "For more pulgins dependency  information start server with -v4"
-        
+        print ("For more plugins dependency information start server with -v4")
+
 def export_default_plugins() :
     #Post processing tango export
     util = PyTango.Util.instance()
@@ -2431,7 +2535,7 @@ def export_default_plugins() :
         beamlineName,_,cameraName = masterDeviceName.split('/')
         for module_name in plugins.__all__:
             try:
-                m = __import__('plugins.%s' % (module_name),None,None,'plugins.%s' % (module_name))
+                m = __import__('Lima.Server.plugins.%s' % (module_name),None,None,'Lima.Server.plugins.%s' % (module_name))
             except ImportError:
                 continue
             else:
@@ -2445,7 +2549,7 @@ def export_default_plugins() :
                 if deviceName is None and specificClass and specificDevice:
                     deviceName = '%s/%s/%s' % (beamlineName,
                                                specificDevice.__name__.lower().replace('deviceserver',''),cameraName)
-                    print 'create device',specificDevice.__name__,deviceName
+                    print ('create device',specificDevice.__name__,deviceName)
                     try:
                         util.create_device(specificDevice.__name__,deviceName)
                     except:
@@ -2455,7 +2559,7 @@ def export_default_plugins() :
 def export_ct_control(ct_map):
     util = PyTango.Util.instance()
     tango_dev_map = get_sub_devices()
-    for name, (tango_ct, tango_object) in ct_map.iteritems():
+    for name, (tango_ct, tango_object) in six.iteritems(ct_map):
         tango_class_name = tango_object.tango_class_name
         # device already created.
         if tango_class_name in tango_dev_map:
@@ -2471,7 +2575,7 @@ def export_ct_control(ct_map):
 def _set_control_ref(ctrl_ref) :
     for module_name in plugins.__all__:
         try:
-            m = __import__('plugins.%s' % (module_name),None,None,'plugins.%s' % (module_name))
+            m = __import__('Lima.Server.plugins.%s' % (module_name),None,None,'Lima.Server.plugins.%s' % (module_name))
         except ImportError:
             continue
         else:
@@ -2501,20 +2605,6 @@ def _getLastFileNumber(prefix,suffix,filesPath) :
                 lastNumber = number
     return lastNumber
 
-def _getDictKey(dict, value):
-    try:
-        ind = dict.values().index(value)                            
-    except ValueError:
-        return None
-    return dict.keys()[ind]
-
-def _getDictValue(dict, key):
-    try:
-        value = dict[key.upper()]
-    except KeyError:
-        return None
-    return value
-
 def _allowed(*args) :
     return True
 
@@ -2531,9 +2621,10 @@ def _video_image_2_struct(image):
             image.frameNumber(),                  # frame number
             image.width(),                        # width
             image.height(),                       # height
-            ord(struct.pack('=H',1)[-1]),         # endianness
+            ord(struct.pack('=H',1).decode()[-1]),         # endianness
             struct.calcsize(VIDEO_HEADER_FORMAT), # header size
             0,0)                                  # padding
+
     return videoheader + image.buffer()
 
 def _get_control():
@@ -2547,7 +2638,7 @@ def _get_control():
     except KeyError:            # wizard mode
         return None
 
-    mod_name = 'camera.' + camera_type
+    mod_name = 'Lima.Server.camera.' + camera_type
     try:
         m = __import__(mod_name, None, None, mod_name)
     except ImportError:
@@ -2559,6 +2650,8 @@ def _get_control():
         try:
             _, specificDevice = m.get_tango_specific_class_n_device()
         except AttributeError:
+            import traceback
+            traceback.print_exc()
             pass
         else:
             typeFlagsNameList = []
@@ -2605,7 +2698,7 @@ def main() :
         try:
             declare_camera_n_commun_to_tango_world(py)
         except:
-            print 'SEB_EXP'
+            print ('SEB_EXP')
             import traceback
             traceback.print_exc()
 
@@ -2613,16 +2706,14 @@ def main() :
 
         # create ct control
         control = _get_control()
-
         if pytango_ver >= (8,1,7) and control is not None:
             master_dev_name = get_lima_device_name()
             beamline_name, _, camera_name = master_dev_name.split('/')
             name_template = "{0}/{{type}}/{1}".format(beamline_name, camera_name)
-
             # register Tango classes corresponding to CtControl, CtImage, ...
             server, ct_map = create_tango_objects(control, name_template)
             tango_classes = set()
-            for name, (tango_ct_object, tango_object) in ct_map.iteritems():
+            for name, (tango_ct_object, tango_object) in six.iteritems(ct_map):
                 tango_class = server.get_tango_class(tango_object.class_name)
                 tango_classes.add(tango_class)
             for tango_class in tango_classes:
@@ -2640,19 +2731,21 @@ def main() :
         if dev:
             dev[0].apply_config()
 
-	try:
+        try:
             export_default_plugins()
         except:
-            print 'SEB_EXP'
+            print ('SEB_EXP')
             import traceback
             traceback.print_exc()
 
         U.server_run()
 
-    except PyTango.DevFailed,e:
-        print '-------> Received a DevFailed exception:',e
-    except Exception,e:
-        print '-------> An unforeseen exception occured....',e
+    except PyTango.DevFailed as e:
+        print ('-------> Received a DevFailed exception:',e)
+    except Exception as e:
+        print ('-------> An unforeseen exception occurred....',e)
+        #import traceback
+        #traceback.print_exc()
 
 if __name__ == '__main__':
     main()

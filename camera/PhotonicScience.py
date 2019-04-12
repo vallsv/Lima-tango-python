@@ -42,8 +42,7 @@
 import PyTango
 from Lima import Core
 from Lima import PhotonicScience as PhotonicScienceAcq
-from AttrHelper import get_attr_4u, get_attr_string_value_list
-import AttrHelper
+from Lima.Server import AttrHelper
 
 
 class PhotonicScience(PyTango.Device_4Impl):
@@ -57,7 +56,7 @@ class PhotonicScience(PyTango.Device_4Impl):
     def __init__(self,*args) :
         PyTango.Device_4Impl.__init__(self,*args)
 
-	self.__Attribute2FunctionBase = {}
+        self.__Attribute2FunctionBase = {}
         self.init_device()
 
 #------------------------------------------------------------------
@@ -76,10 +75,10 @@ class PhotonicScience(PyTango.Device_4Impl):
 
     @Core.DEB_MEMBER_FUNCT
     def getAttrStringValueList(self, attr_name):
-        return get_attr_string_value_list(self, attr_name)
+        return AttrHelper.get_attr_string_value_list(self, attr_name)
 
     def __getattr__(self,name) :
-        return get_attr_4u(self, name, PhotonicScienceAcq)
+        return AttrHelper.get_attr_4u(self, name, PhotonicScienceAcq)
 
 class PhotonicScienceClass(PyTango.DeviceClass):
 
@@ -114,8 +113,8 @@ def get_control(camera_library_path = "",**keys) :
     global _PhotonicScienceCam
     global _PhotonicScienceInterface
     if _PhotonicScienceCam is None:
-	_PhotonicScienceCam = PhotonicScienceAcq.Camera(camera_library_path)
-	_PhotonicScienceInterface = PhotonicScienceAcq.Interface(_PhotonicScienceCam)
+        _PhotonicScienceCam = PhotonicScienceAcq.Camera(camera_library_path)
+        _PhotonicScienceInterface = PhotonicScienceAcq.Interface(_PhotonicScienceCam)
     return Core.CtControl(_PhotonicScienceInterface)
 
 def get_tango_specific_class_n_device():

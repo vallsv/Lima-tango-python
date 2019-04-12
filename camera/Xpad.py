@@ -42,8 +42,7 @@
 import PyTango
 from Lima import Core
 from Lima import Xpad as XpadAcq
-from AttrHelper import get_attr_4u, get_attr_string_value_list
-import AttrHelper
+from Lima.Server import AttrHelper
 
 
 class Xpad(PyTango.Device_4Impl):
@@ -75,10 +74,10 @@ class Xpad(PyTango.Device_4Impl):
 
     @Core.DEB_MEMBER_FUNCT
     def getAttrStringValueList(self, attr_name):
-        return get_attr_string_value_list(self, attr_name)
+        return AttrHelper.get_attr_string_value_list(self, attr_name)
 
     def __getattr__(self,name) :
-        return get_attr_4u(self, name, XpadAcq)
+        return AttrHelper.get_attr_4u(self, name, XpadAcq)
 
 class XpadClass(PyTango.DeviceClass):
 
@@ -110,8 +109,8 @@ def get_control(**keys) :
     global _XpadCam
     global _XpadInterface
     if _XpadCam is None:
-	_XpadCam = XpadAcq.Camera()
-	_XpadInterface = XpadAcq.Interface(_XpadCam)
+        _XpadCam = XpadAcq.Camera()
+        _XpadInterface = XpadAcq.Interface(_XpadCam)
     return Core.CtControl(_XpadInterface)
 
 def get_tango_specific_class_n_device():

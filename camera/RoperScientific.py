@@ -42,8 +42,7 @@
 import PyTango
 from Lima import Core
 from Lima import RoperScientific as RoperScientificAcq
-from AttrHelper import get_attr_4u, get_attr_string_value_list
-import AttrHelper
+from Lima.Server import AttrHelper
 
 class RoperScientific(PyTango.Device_4Impl):
 
@@ -82,10 +81,10 @@ class RoperScientific(PyTango.Device_4Impl):
 
     @Core.DEB_MEMBER_FUNCT
     def getAttrStringValueList(self, attr_name):
-        return get_attr_string_value_list(self, attr_name)
+        return AttrHelper.get_attr_string_value_list(self, attr_name)
 
     def __getattr__(self,name) :
-        return get_attr_4u(self, name, _RoperScientificCam)
+        return AttrHelper.get_attr_4u(self, name, _RoperScientificCam)
 
 
     def read_InternalAcqMode(self, attr):
@@ -146,8 +145,8 @@ def get_control(cam_num = "0",**keys) :
     global _RoperScientificInterface
     my_cam_num = int(cam_num)
     if _RoperScientificCam is None:
-	_RoperScientificCam = RoperScientificAcq.Camera(my_cam_num)
-	_RoperScientificInterface = RoperScientificAcq.Interface(_RoperScientificCam)
+        _RoperScientificCam = RoperScientificAcq.Camera(my_cam_num)
+        _RoperScientificInterface = RoperScientificAcq.Interface(_RoperScientificCam)
     return Core.CtControl(_RoperScientificInterface)
 
 def get_tango_specific_class_n_device():

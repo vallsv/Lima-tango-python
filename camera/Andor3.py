@@ -46,7 +46,7 @@ from Lima import Core
 from Lima import Andor3 as Andor3Module
 # import some useful helpers to create direct mapping between tango attributes
 # and Lima interfaces.
-from AttrHelper import get_attr_4u, get_attr_string_value_list
+from Lima.Server import AttrHelper
 
 class Andor3(PyTango.Device_4Impl):
 
@@ -148,9 +148,9 @@ class Andor3(PyTango.Device_4Impl):
 
     def __getattr__(self,name) :
         try:
-            return get_attr_4u(self, name, _Andor3Interface)
+            return AttrHelper.get_attr_4u(self, name, _Andor3Interface)
         except:
-            return get_attr_4u(self, name, _Andor3Camera)
+            return AttrHelper.get_attr_4u(self, name, _Andor3Camera)
 
 
 #==================================================================
@@ -167,7 +167,7 @@ class Andor3(PyTango.Device_4Impl):
 #------------------------------------------------------------------
     @Core.DEB_MEMBER_FUNCT
     def getAttrStringValueList(self, attr_name):
-        return get_attr_string_value_list(self, attr_name)
+        return AttrHelper.get_attr_string_value_list(self, attr_name)
     
 
 #==================================================================
@@ -367,10 +367,10 @@ def get_control(config_path='/users/blissadm/local/Andor3/andor/bitflow', camera
     global _Andor3Camera
     global _Andor3Interface
     if _Andor3Camera is None:
-        print '\n\nStarting and configuring the Andor3 camera ...'
+        print ('\n\nStarting and configuring the Andor3 camera ...')
         _Andor3Camera = Andor3Acq.Camera(config_path, int(camera_number))
         _Andor3Interface = Andor3Acq.Interface(_Andor3Camera)
-        print '\n\nAndor3 Camera #%s (%s:%s) is started'%(camera_number,_Andor3Camera.getDetectorType(),_Andor3Camera.getDetectorModel())
+        print ('\n\nAndor3 Camera #%s (%s:%s) is started'%(camera_number,_Andor3Camera.getDetectorType(),_Andor3Camera.getDetectorModel()))
     return Core.CtControl(_Andor3Interface)
 
     

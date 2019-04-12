@@ -46,7 +46,7 @@ from Lima import Core
 from Lima import Andor as AndorModule
 # import some useful helpers to create direct mapping between tango attributes
 # and Lima interfaces.
-from AttrHelper import get_attr_4u, get_attr_string_value_list
+from Lima.Server import AttrHelper
 
 class Andor(PyTango.Device_4Impl):
 
@@ -189,7 +189,7 @@ class Andor(PyTango.Device_4Impl):
 
 
     def __getattr__(self,name) :
-        return get_attr_4u(self, name, _AndorInterface)
+        return AttrHelper.get_attr_4u(self, name, _AndorInterface)
 
 
     ## @brief return the timing times, exposure and latency
@@ -216,7 +216,7 @@ class Andor(PyTango.Device_4Impl):
 #------------------------------------------------------------------
     @Core.DEB_MEMBER_FUNCT
     def getAttrStringValueList(self, attr_name):
-        return get_attr_string_value_list(self, attr_name)
+        return AttrHelper.get_attr_string_value_list(self, attr_name)
     
 
 #==================================================================
@@ -423,10 +423,10 @@ def get_control(config_path='/usr/local/etc/andor', camera_number = '0',**keys) 
     global _AndorCamera
     global _AndorInterface
     if _AndorCamera is None:
-        print '\n\nStarting and configuring the Andor camera ...'
+        print ('\n\nStarting and configuring the Andor camera ...')
         _AndorCamera = AndorAcq.Camera(config_path, int(camera_number))
         _AndorInterface = AndorAcq.Interface(_AndorCamera)
-        print '\n\nAndor Camera #%s (%s:%s) is started'%(camera_number,_AndorCamera.getDetectorType(),_AndorCamera.getDetectorModel())
+        print ('\n\nAndor Camera #%s (%s:%s) is started'%(camera_number,_AndorCamera.getDetectorType(),_AndorCamera.getDetectorModel()))
     return Core.CtControl(_AndorInterface)
 
     

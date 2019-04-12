@@ -45,8 +45,7 @@ import sys, types, os, time
 from Lima import Core
 # import some useful helpers to create direct mapping between tango attributes
 # and Lima interfaces.
-from AttrHelper import get_attr_4u, get_attr_string_value_list
-import AttrHelper
+from Lima.Server import AttrHelper
 
 #==================================================================
 #   RayonixHs Class Description:
@@ -199,7 +198,7 @@ class RayonixHs(PyTango.Device_4Impl):
         dict = getattr(self, '_'+self.__class__.__name__+'__'+name)
         func = getattr(_RayonixHsInterface, 'set'+name)
         key = getattr(self, prop_name)
-        val = AttrHelper._getDictValue(dict, key.upper())
+        val = AttrHelper.getDictValue(dict, key.upper())
         if  val is None:
             deb.Error('Wrong value for property %s :%s' % (prop_name, val))
         else:
@@ -219,7 +218,7 @@ class RayonixHs(PyTango.Device_4Impl):
 
 
     def __getattr__(self,name) :
-        return get_attr_4u(self, name, _RayonixHsInterface)
+        return AttrHelper.get_attr_4u(self, name, _RayonixHsInterface)
 
 
     ## @brief return the ID on output channel #1
@@ -227,7 +226,7 @@ class RayonixHs(PyTango.Device_4Impl):
     @Core.DEB_MEMBER_FUNCT
     def read_output1_id(self, attr):        
         id = _RayonixHsInterface.getOutputSignalID(RayonixHsAcq.CHANNEL_1)
-        val = AttrHelper._getDictKey(self.__OutputSignalID, id)
+        val = AttrHelper.getDictKey(self.__OutputSignalID, id)
         attr.set_value(val)        
         
     ## @brief write the ID on output channel #1
@@ -235,7 +234,7 @@ class RayonixHs(PyTango.Device_4Impl):
     @Core.DEB_MEMBER_FUNCT
     def write_output1_id(self, attr):
         id = attr.get_write_value()
-        val = AttrHelper._getDictValue(self.__OutputSignalID, id)
+        val = AttrHelper.getDictValue(self.__OutputSignalID, id)
         _RayonixHsInterface.setOutputSignalID(RayonixHsAcq.CHANNEL_1, val)
 
     ## @brief return the ID on output channel #2
@@ -243,7 +242,7 @@ class RayonixHs(PyTango.Device_4Impl):
     @Core.DEB_MEMBER_FUNCT
     def read_output2_id(self, attr):        
         id = _RayonixHsInterface.getOutputSignalID(RayonixHsAcq.CHANNEL_2)
-        val = AttrHelper._getDictKey(self.__OutputSignalID, id)
+        val = AttrHelper.getDictKey(self.__OutputSignalID, id)
         attr.set_value(val)        
         
     ## @brief write the ID on output channel #2
@@ -251,7 +250,7 @@ class RayonixHs(PyTango.Device_4Impl):
     @Core.DEB_MEMBER_FUNCT
     def write_output2_id(self, attr):
         id = attr.get_write_value()
-        val = AttrHelper._getDictValue(self.__OutputSignalID, id)
+        val = AttrHelper.getDictValue(self.__OutputSignalID, id)
         _RayonixHsInterface.setOutputSignalID(RayonixHsAcq.CHANNEL_2, val)
 
     ## @brief return the signal type on output channel #1
@@ -259,7 +258,7 @@ class RayonixHs(PyTango.Device_4Impl):
     @Core.DEB_MEMBER_FUNCT
     def read_output1_signal_type(self, attr):        
         sig_type = _RayonixHsInterface.getOutputSignalType(RayonixHsAcq.CHANNEL_1)
-        val = AttrHelper._getDictKey(self.__OutputSignalType, sig_type)
+        val = AttrHelper.getDictKey(self.__OutputSignalType, sig_type)
         attr.set_value(val)        
         
     ## @brief write the signal type  on output channel #1
@@ -267,7 +266,7 @@ class RayonixHs(PyTango.Device_4Impl):
     @Core.DEB_MEMBER_FUNCT
     def write_output1_signal_type(self, attr):
         sig_type = attr.get_write_value()
-        val = AttrHelper._getDictValue(self.__OutputSignalType, sig_type)
+        val = AttrHelper.getDictValue(self.__OutputSignalType, sig_type)
         _RayonixHsInterface.setOutputSignalType(RayonixHsAcq.CHANNEL_1, val)
 
     ## @brief return the signal type on output channel #2
@@ -275,7 +274,7 @@ class RayonixHs(PyTango.Device_4Impl):
     @Core.DEB_MEMBER_FUNCT
     def read_output2_signal_type(self, attr):        
         sig_type = _RayonixHsInterface.getOutputSignalType(RayonixHsAcq.CHANNEL_2)
-        val = AttrHelper._getDictKey(self.__OutputSignalType, sig_type)
+        val = AttrHelper.getDictKey(self.__OutputSignalType, sig_type)
         attr.set_value(val)        
         
     ## @brief write the signal type  on output channel #2
@@ -283,7 +282,7 @@ class RayonixHs(PyTango.Device_4Impl):
     @Core.DEB_MEMBER_FUNCT
     def write_output2_signal_type(self, attr):
         sig_type = attr.get_write_value()
-        val = AttrHelper._getDictValue(self.__OutputSignalType, sig_type)
+        val = AttrHelper.getDictValue(self.__OutputSignalType, sig_type)
         _RayonixHsInterface.setOutputSignalType(RayonixHsAcq.CHANNEL_2, val)
 
 
@@ -306,7 +305,7 @@ class RayonixHs(PyTango.Device_4Impl):
         elif attr_name in ['output1_signal_type', 'output2_signal_type']:
             return self.__OutputSignalType.keys()
         else:
-            return get_attr_string_value_list(self, attr_name)
+            return AttrHelper.get_attr_string_value_list(self, attr_name)
     
     @Core.DEB_MEMBER_FUNCT
     def acquireNewBackground(self, params):
@@ -515,10 +514,10 @@ def get_control(**keys) :
     global _RayonixHsCamera
     global _RayonixHsInterface
     if _RayonixHsCamera is None:
-        print '\n\nStarting and configuring the RayonixHs camera ...'
+        print ('\n\nStarting and configuring the RayonixHs camera ...')
         _RayonixHsCamera = RayonixHsAcq.Camera()
         _RayonixHsInterface = RayonixHsAcq.Interface(_RayonixHsCamera)
-        print '\n\nRayonixHs Camera (%s:%s) is started'%(_RayonixHsCamera.getDetectorType(),_RayonixHsCamera.getDetectorModel())
+        print ('\n\nRayonixHs Camera (%s:%s) is started'%(_RayonixHsCamera.getDetectorType(),_RayonixHsCamera.getDetectorModel()))
     return Core.CtControl(_RayonixHsInterface)
 
     

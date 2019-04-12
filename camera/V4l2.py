@@ -41,9 +41,8 @@
 #
 import PyTango
 from Lima import Core
-from Lima import v4l2 as V4l2Acq
-from AttrHelper import get_attr_4u, get_attr_string_value_list
-import AttrHelper
+from Lima import V4l2 as V4l2Acq
+from Lima.Server import AttrHelper
 
 
 class V4l2(PyTango.Device_4Impl):
@@ -75,10 +74,10 @@ class V4l2(PyTango.Device_4Impl):
 
     @Core.DEB_MEMBER_FUNCT
     def getAttrStringValueList(self, attr_name):
-        return get_attr_string_value_list(self, attr_name)
+        return AttrHelper.get_attr_string_value_list(self, attr_name)
 
     def __getattr__(self,name) :
-        return get_attr_4u(self, name, _V4l2Interface)
+        return AttrHelper.get_attr_4u(self, name, _V4l2Interface)
 
 class V4l2Class(PyTango.DeviceClass):
 
@@ -111,7 +110,7 @@ _V4l2Interface = None
 def get_control(video_device='/dev/video0', **keys) :
     global _V4l2Interface
     if _V4l2Interface is None:
-	_V4l2Interface = V4l2Acq.Interface(video_device)
+        _V4l2Interface = V4l2Acq.Interface(video_device)
     return Core.CtControl(_V4l2Interface)
 
 def get_tango_specific_class_n_device():

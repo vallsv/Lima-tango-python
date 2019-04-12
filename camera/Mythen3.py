@@ -50,7 +50,7 @@ import numpy
 import sys
 from Lima import Core
 from Lima import Mythen3 as Mythen3Acq
-import AttrHelper
+from Lima.Server import AttrHelper
 
 class Mythen3 (PyTango.Device_4Impl):
 
@@ -60,9 +60,9 @@ class Mythen3 (PyTango.Device_4Impl):
         PyTango.Device_4Impl.__init__(self, cl, name)
         Mythen3.init_device(self)
 
- 	self.__Status = {'Running' : Mythen3Acq.Camera.Running,
-			         'WaitForTrigger' : Mythen3Acq.Camera.WaitForTrigger,
-			         'NoDataInBuffer' : Mythen3Acq.Camera.NoDataInBuffer}
+        self.__Status = {'Running' : Mythen3Acq.Camera.Running,
+                         'WaitForTrigger' : Mythen3Acq.Camera.WaitForTrigger,
+                         'NoDataInBuffer' : Mythen3Acq.Camera.NoDataInBuffer}
 
         self.__Switch = {'OFF': Mythen3Acq.Camera.OFF,
                          'ON': Mythen3Acq.Camera.ON}
@@ -138,7 +138,7 @@ class Mythen3 (PyTango.Device_4Impl):
 
     @Core.DEB_MEMBER_FUNCT
     def read_serialNumbers(self, attr):
-	data = _Mythen3Camera.getSerialNumbers(); 
+        data = _Mythen3Camera.getSerialNumbers(); 
         attr.set_value([data[i] for i in range(len(data))])
 
     @Core.DEB_MEMBER_FUNCT
@@ -182,18 +182,18 @@ class Mythen3 (PyTango.Device_4Impl):
     @Core.DEB_MEMBER_FUNCT
     def read_nbits(self, attr):
         nbits = _Mythen3Camera.getNbits()
-        attr.set_value(AttrHelper._getDictKey(self.__Nbits, nbits))
+        attr.set_value(AttrHelper.getDictKey(self.__Nbits, nbits))
 
     @Core.DEB_MEMBER_FUNCT
     def write_nbits(self, attr):
         data = attr.get_write_value()
-        nbits = AttrHelper._getDictValue(self.__Nbits, data)
+        nbits = AttrHelper.getDictValue(self.__Nbits, data)
         _Mythen3Camera.setNbits(nbits)
 
     @Core.DEB_MEMBER_FUNCT
     def read_hwStatus(self, attr):
         status = _Mythen3Camera.getHwStatus()
-        attr.set_value(AttrHelper._getDictKey(self.__Status, status))
+        attr.set_value(AttrHelper.getDictKey(self.__Status, status))
 
     @Core.DEB_MEMBER_FUNCT
     def read_energy(self, attr):
@@ -239,29 +239,29 @@ class Mythen3 (PyTango.Device_4Impl):
     @Core.DEB_MEMBER_FUNCT
     def write_predefinedSettings(self, attr):
         data = attr.get_write_value()
-        setting = AttrHelper._getDictCaseValue(self.__Settings, data)
+        setting = AttrHelper.getDictCaseValue(self.__Settings, data)
         _Mythen3Camera.setPredefinedSettings(setting)
 
     @Core.DEB_MEMBER_FUNCT
     def read_badChannelInterpolation(self, attr):
         mode = _Mythen3Camera.getBadChannelInterpolation()
-        attr.set_value(AttrHelper._getDictKey(self.__Switch, mode))
+        attr.set_value(AttrHelper.getDictKey(self.__Switch, mode))
 
     @Core.DEB_MEMBER_FUNCT
     def write_badChannelInterpolation(self, attr):
         data = attr.get_write_value()
-        mode = AttrHelper._getDictValue(self.__Switch, data)
+        mode = AttrHelper.getDictValue(self.__Switch, data)
         _Mythen3Camera.setBadChannelInterpolation(mode)
 
     @Core.DEB_MEMBER_FUNCT
     def read_flatFieldCorrection(self, attr):
         mode = _Mythen3Camera.getFlatFieldCorrection()
-        attr.set_value(AttrHelper._getDictKey(self.__Switch, mode))
+        attr.set_value(AttrHelper.getDictKey(self.__Switch, mode))
 
     @Core.DEB_MEMBER_FUNCT
     def write_flatFieldCorrection(self, attr):
         data = attr.get_write_value()
-        mode = AttrHelper._getDictValue(self.__Switch, data)
+        mode = AttrHelper.getDictValue(self.__Switch, data)
         _Mythen3Camera.setFlatFieldCorrection(mode)
 
     @Core.DEB_MEMBER_FUNCT
@@ -279,13 +279,13 @@ class Mythen3 (PyTango.Device_4Impl):
     @Core.DEB_MEMBER_FUNCT
     def read_rateCorrection(self, attr):
         mode = _Mythen3Camera.getRateCorrection()
-        attr.set_value(AttrHelper._getDictKey(self.__Switch, mode))
+        attr.set_value(AttrHelper.getDictKey(self.__Switch, mode))
 
 
     @Core.DEB_MEMBER_FUNCT
     def write_rateCorrection(self, attr):
         data = attr.get_write_value()
-        mode = AttrHelper._getDictValue(self.__Switch, data)
+        mode = AttrHelper.getDictValue(self.__Switch, data)
         _Mythen3Camera.setRateCorrection(mode)
 
     @Core.DEB_MEMBER_FUNCT
@@ -319,57 +319,57 @@ class Mythen3 (PyTango.Device_4Impl):
     @Core.DEB_MEMBER_FUNCT
     def read_continuousTrigger(self, attr):
         mode = _Mythen3Camera.getContinuousTrigger()
-        attr.set_value(AttrHelper._getDictKey(self.__Switch, mode))
+        attr.set_value(AttrHelper.getDictKey(self.__Switch, mode))
 
     @Core.DEB_MEMBER_FUNCT
     def write_continuousTrigger(self, attr):
         data = attr.get_write_value()
-        mode = AttrHelper._getDictValue(self.__Switch, data)
+        mode = AttrHelper.getDictValue(self.__Switch, data)
         _Mythen3Camera.setContinuousTrigger(mode)
 
     @Core.DEB_MEMBER_FUNCT
     def read_gateMode(self, attr):
         mode = _Mythen3Camera.getGateMode()
-        attr.set_value(AttrHelper._getDictKey(self.__Switch, mode))
+        attr.set_value(AttrHelper.getDictKey(self.__Switch, mode))
 
     @Core.DEB_MEMBER_FUNCT
     def write_gateMode(self, attr):
         data = attr.get_write_value()
-        mode = AttrHelper._getDictValue(self.__Switch, data)
+        mode = AttrHelper.getDictValue(self.__Switch, data)
         _Mythen3Camera.setGateMode(mode)
 
     @Core.DEB_MEMBER_FUNCT
     def read_triggered(self, attr):
         mode = _Mythen3Camera.getTriggered()
-        attr.set_value(AttrHelper._getDictKey(self.__Switch, mode))
+        attr.set_value(AttrHelper.getDictKey(self.__Switch, mode))
 
     @Core.DEB_MEMBER_FUNCT
     def write_triggered(self, attr):
         data = attr.get_write_value()
-        mode = AttrHelper._getDictValue(self.__Switch, data)
+        mode = AttrHelper.getDictValue(self.__Switch, data)
         _Mythen3Camera.setTriggered(mode)
 
 
     @Core.DEB_MEMBER_FUNCT
     def read_inputSignalPolarity(self, attr):
         mode = _Mythen3Camera.getInputSignalPolarity()
-        attr.set_value(AttrHelper._getDictKey(self.__Polarity, mode))
+        attr.set_value(AttrHelper.getDictKey(self.__Polarity, mode))
 
     @Core.DEB_MEMBER_FUNCT
     def write_inputSignalPolarity(self, attr):
         data = attr.get_write_value()
-        mode = AttrHelper._getDictValue(self.__Polarity, data)
+        mode = AttrHelper.getDictValue(self.__Polarity, data)
         _Mythen3Camera.setInputSignalPolarity(mode)
 
     @Core.DEB_MEMBER_FUNCT
     def read_outputSignalPolarity(self, attr):
         mode = _Mythen3Camera.getOutputSignalPolarity()
-        attr.set_value(AttrHelper._getDictKey(self.__Polarity, mode))
+        attr.set_value(AttrHelper.getDictKey(self.__Polarity, mode))
 
     @Core.DEB_MEMBER_FUNCT
     def write_outputSignalPolarity(self, attr):
         data = attr.get_write_value()
-        mode = AttrHelper._getDictValue(self.__Polarity, data)
+        mode = AttrHelper.getDictValue(self.__Polarity, data)
         _Mythen3Camera.setOutputSignalPolarity(mode)
 
     @Core.DEB_MEMBER_FUNCT
@@ -386,12 +386,12 @@ class Mythen3 (PyTango.Device_4Impl):
     @Core.DEB_MEMBER_FUNCT
     def read_useRawReadout(self, attr):
         mode = _Mythen3Camera.getUseRawReadout()
-        attr.set_value(AttrHelper._getDictKey(self.__Switch, mode))
+        attr.set_value(AttrHelper.getDictKey(self.__Switch, mode))
 
     @Core.DEB_MEMBER_FUNCT
     def write_useRawReadout(self, attr):
         data = attr.get_write_value()
-        mode = AttrHelper._getDictValue(self.__Switch, data)
+        mode = AttrHelper.getDictValue(self.__Switch, data)
         _Mythen3Camera.setUseRawReadout(mode)
 
 #-----------------------------------------------------------------------------
@@ -790,10 +790,10 @@ def get_control(HostName="160.103.146.190", TcpPort=1031, Simulate=False, **keys
     global _Mythen3Interface
 #    Core.DebParams.setTypeFlags(Core.DebParams.AllFlags)
     if _Mythen3Interface is None:
-        print 'Starting and configuring the Mythen3 camera ...'
+        print ('Starting and configuring the Mythen3 camera ...')
         _Mythen3Camera = Mythen3Acq.Camera(HostName, int(TcpPort), bool(int(Simulate)))
         _Mythen3Interface = Mythen3Acq.Interface(_Mythen3Camera)
-        print 'Mythen3 Camera (%s:%s) is started' % (_Mythen3Camera.getDetectorType(), _Mythen3Camera.getDetectorModel())
+        print ('Mythen3 Camera (%s:%s) is started' % (_Mythen3Camera.getDetectorType(), _Mythen3Camera.getDetectorModel()))
     return Core.CtControl(_Mythen3Interface)
 
 def get_tango_specific_class_n_device():

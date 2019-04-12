@@ -43,11 +43,10 @@ import PyTango
 import sys, types, os, time
 
 from Lima import Core
-from Lima.Maxipix import Maxipix as MaxipixModule
+from Lima import Maxipix as MaxipixModule
 # import some useful helpers to create direct mapping between tango attributes
 # and Lima APIs.
-from AttrHelper import get_attr_4u, get_attr_string_value_list
-import AttrHelper
+from Lima.Server import AttrHelper
 
 class Maxipix(PyTango.Device_4Impl):
 
@@ -132,7 +131,7 @@ class Maxipix(PyTango.Device_4Impl):
             func = getattr(_PriamAcq, 'set'+name)
         deb.Always('Setting property '+prop_name) 
 
-        val = AttrHelper._getDictValue(dict, key.upper())
+        val = AttrHelper.getDictValue(dict, key.upper())
         if  val is None:
             deb.Error('Wrong value for property %s :%s' % (prop_name, val))
         else:
@@ -173,9 +172,9 @@ class Maxipix(PyTango.Device_4Impl):
     def __getattr__(self,name) :
         _PriamAcq = _MaxipixInterface.priamAcq()
         if name.count('fill_mode') or name.count('energy_threshold'):
-            return get_attr_4u(self, name, _MaxipixInterface)
+            return AttrHelper.get_attr_4u(self, name, _MaxipixInterface)
         else:
-            return get_attr_4u(self, name, _PriamAcq)
+            return AttrHelper.get_attr_4u(self, name, _PriamAcq)
             
         
     ## @brief read the config name
@@ -233,7 +232,7 @@ class Maxipix(PyTango.Device_4Impl):
         if attr_name.count('config_name'):
             return self.__getConfigNameList()
         else:
-            return get_attr_string_value_list(self, attr_name)
+            return AttrHelper.get_attr_string_value_list(self, attr_name)
 
 class MaxipixClass(PyTango.DeviceClass):
 
@@ -403,7 +402,6 @@ class MaxipixClass(PyTango.DeviceClass):
 #----------------------------------------------------------------------------
 #                              Plugins
 #----------------------------------------------------------------------------
-from Lima.Maxipix import Maxipix as MaxipixModule
 
 _MaxipixCamera = None
 _MaxipixInterface = None

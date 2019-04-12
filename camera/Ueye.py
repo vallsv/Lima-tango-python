@@ -25,7 +25,7 @@
 import PyTango
 from Lima import Core
 from Lima import Ueye as UeyeModule
-from AttrHelper import get_attr_4u, get_attr_string_value_list
+from Lima.Server import AttrHelper
 
 class Ueye(PyTango.Device_4Impl):
 
@@ -65,20 +65,20 @@ class Ueye(PyTango.Device_4Impl):
     @Core.DEB_MEMBER_FUNCT
     def getAttrStringValueList(self, attr_name):
         #use AttrHelper
-        return get_attr_string_value_list(self, attr_name)
+        return AttrHelper.get_attr_string_value_list(self, attr_name)
 #==================================================================
 #
-#    Dexela read/write attribute methods
+#    Ueye read/write attribute methods
 #
 #==================================================================
     def __getattr__(self,name) :
         #use AttrHelper
-        return get_attr_4u(self,name,_DexelaInterface)
+        return AttrHelper.get_attr_4u(self,name,_UeyeInterface)
 
 
 #==================================================================
 #
-#    DexelaClass class definition
+#    UeyeClass class definition
 #
 #==================================================================
 class UeyeClass(PyTango.DeviceClass):
@@ -113,9 +113,9 @@ _UeyeInterface = None
 def get_control(address="0", **keys) :
     global _UeyeInterface
     if _UeyeInterface is None:
-	ueye = UeyeModule.Camera(int(address))
+        ueye = UeyeModule.Camera(int(address))
         _UeyeInterface = UeyeModule.Interface(ueye)
-	_UeyeInterface._ref_interface = ueye
+        _UeyeInterface._ref_interface = ueye
     return Core.CtControl(_UeyeInterface)
 
 

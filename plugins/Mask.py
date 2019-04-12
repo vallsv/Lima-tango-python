@@ -22,8 +22,8 @@
 import PyTango
 
 from Lima import Core
-from Utils import getDataFromFile,BasePostProcess
-from AttrHelper import get_attr_4u, get_attr_string_value_list
+from Lima.Server.plugins.Utils import getDataFromFile,BasePostProcess
+from Lima.Server import AttrHelper
 
 class MaskDeviceServer(BasePostProcess) :
     MASK_TASK_NAME = 'MaskTask'
@@ -39,21 +39,21 @@ class MaskDeviceServer(BasePostProcess) :
         MaskDeviceServer.init_device(self)
 
     def set_state(self,state) :
-	if(state == PyTango.DevState.OFF) :
-	    if(self.__maskTask) :
-		self.__maskTask = None
-		ctControl = _control_ref()
-		extOpt = ctControl.externalOperation()
-		extOpt.delOp(self.MASK_TASK_NAME)
-	elif(state == PyTango.DevState.ON) :
-	    if not self.__maskTask:
+        if(state == PyTango.DevState.OFF) :
+            if(self.__maskTask) :
+                self.__maskTask = None
+                ctControl = _control_ref()
+                extOpt = ctControl.externalOperation()
+                extOpt.delOp(self.MASK_TASK_NAME)
+        elif(state == PyTango.DevState.ON) :
+            if not self.__maskTask:
                 ctControl = _control_ref()
                 extOpt = ctControl.externalOperation()
                 self.__maskTask = extOpt.addOp(Core.MASK,
                                                self.MASK_TASK_NAME,
                                                self._runLevel)
                 self.__maskTask.setMaskImage(self.__maskImage)
-	PyTango.Device_4Impl.set_state(self,state)
+        PyTango.Device_4Impl.set_state(self,state)
 
     def setMaskImage(self,filepath) :
         self.__maskImage = getDataFromFile(filepath)
@@ -67,29 +67,17 @@ class MaskDeviceServer(BasePostProcess) :
 #    argout: DevVarStringArray   
 #------------------------------------------------------------------
     def getAttrStringValueList(self, attr_name):
-        return get_attr_string_value_list(self, attr_name)
+        return AttrHelper.get_attr_string_value_list(self, attr_name)
 
     def __getattr__(self,name) :
         try:
             return BasePostProcess.__getattr__(self,name)
         except AttributeError:
-            return get_attr_4u(self,name,self.__maskTask)
+            # ask the help to not store object ref (object attribute functions)
+            # into  __dict__, mask task is recreated everytime the plugin is stopped/started
+            return AttrHelper.get_attr_4u(self,name,self.__maskTask, update_dict=False)
 
         
-def _getDictKey(dict, value):
-    try:
-        ind = dict.values().index(value)                            
-    except ValueError:
-        return None
-    return dict.keys()[ind]
-
-def _getDictValue(dict, key):
-    try:
-        value = dict[key.upper()]
-    except KeyError:
-        return None
-    return value
-
 class MaskDeviceServerClass(PyTango.DeviceClass) :
         #	 Class Properties
     class_property_list = {
@@ -135,8 +123,8 @@ class MaskDeviceServerClass(PyTango.DeviceClass) :
 #    RoiCounterDeviceServerClass Constructor
 #------------------------------------------------------------------
     def __init__(self, name):
-	PyTango.DeviceClass.__init__(self, name)
-	self.set_type(name);
+        PyTango.DeviceClass.__init__(self, name)
+        self.set_type(name);
 
 _control_ref = None
 def set_control_ref(control_class_ref) :

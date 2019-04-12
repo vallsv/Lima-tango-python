@@ -41,7 +41,7 @@
 import PyTango
 from Lima import Core
 from Lima import PointGrey as PointGreyAcq
-from AttrHelper import get_attr_4u, get_attr_string_value_list
+from Lima.Server import AttrHelper
 
 class PointGrey(PyTango.Device_4Impl):
 
@@ -88,7 +88,7 @@ class PointGrey(PyTango.Device_4Impl):
     @Core.DEB_MEMBER_FUNCT
     def getAttrStringValueList(self, attr_name):
         #use AttrHelper
-        return get_attr_string_value_list(self, attr_name)
+        return AttrHelper.get_attr_string_value_list(self, attr_name)
     
 #==================================================================
 #
@@ -97,7 +97,7 @@ class PointGrey(PyTango.Device_4Impl):
 #==================================================================
     def __getattr__(self,name) :
         #use AttrHelper
-        return get_attr_4u(self, name, _PointGreyInterface)
+        return AttrHelper.get_attr_4u(self, name, _PointGreyInterface)
 
     def read_exp_time_range(self, attr):
         min_, max_ = _PointGreyInterface.getExpTimeRange()

@@ -45,7 +45,7 @@ from Lima import Core
 from Lima import Ultra as UltraAcq
 # import some useful helpers to create direct mapping between tango attributes
 # and Lima interfaces.
-from AttrHelper import get_attr_4u, get_attr_string_value_list
+from Lima.Server import AttrHelper
 
 #------------------------------------------------------------------
 #------------------------------------------------------------------
@@ -88,27 +88,7 @@ class Ultra(PyTango.Device_4Impl):
 #------------------------------------------------------------------
     @Core.DEB_MEMBER_FUNCT
     def getAttrStringValueList(self, attr_name):
-        valueList = []
-        dict_name = '_' + self.__class__.__name__ + '__' + ''.join([x.title() for x in attr_name.split('_')])
-        d = getattr(self, dict_name, None)
-        if d:
-            valueList = d.keys()
-
-        return valueList
-
-    def __getDictKey(self, dict, value):
-        try:
-            ind = dict.values().index(value)
-        except ValueError:
-            return None
-        return dict.keys()[ind]
-
-    def __getDictValue(self, dict, key):
-        try:
-            value = dict[key]
-        except KeyError:
-            return None
-        return value
+        return AttrHelper.get_attr_string_value_list(self, attr_name)
 
 #-----------------------------------------------------------------------------
 #    Ultra command methods
@@ -130,7 +110,7 @@ class Ultra(PyTango.Device_4Impl):
 
 
     def __getattr__(self, name) :
-        return get_attr_4u(self, name, _UltraInterface)
+        return AttrHelper.get_attr_4u(self, name, _UltraInterface)
 
     def read_headColdTemp(self, attr):
         attr.set_value(_UltraCamera.getHeadColdTemp())

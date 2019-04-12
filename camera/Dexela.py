@@ -43,11 +43,8 @@ import os
 import PyTango
 from Lima import Core
 from Lima import Dexela as DexelaAcq
-from AttrHelper import get_attr_4u, get_attr_string_value_list
+from Lima.Server import AttrHelper
 
-
-basepath,modefilename = os.path.split(DexelaAcq.__file__)
-database_path = os.path.join(basepath,'DexelaConfig.cfg')
 
 class Dexela(PyTango.Device_4Impl):
 
@@ -80,8 +77,10 @@ class Dexela(PyTango.Device_4Impl):
         self.get_device_properties(self.get_device_class())
 
 	#Full well mode
-	self.__FullWellMode = {'HIGH' : _DexelaInterface.High,
-			       'LOW' : _DexelaInterface.Low}
+        self.__FullWellMode = {'HIGH' : _DexelaInterface.High,
+                               'LOW' : _DexelaInterface.Low}
+        self.__SkipFirstFrame = {'YES' : True,
+                                 'NO' : False}
 #------------------------------------------------------------------
 #    getAttrStringValueList command:
 #
@@ -91,7 +90,7 @@ class Dexela(PyTango.Device_4Impl):
     @Core.DEB_MEMBER_FUNCT
     def getAttrStringValueList(self, attr_name):
         #use AttrHelper
-        return get_attr_string_value_list(self, attr_name)
+        return AttrHelper.get_attr_string_value_list(self, attr_name)
 #==================================================================
 #
 #    Dexela read/write attribute methods
@@ -99,7 +98,7 @@ class Dexela(PyTango.Device_4Impl):
 #==================================================================
     def __getattr__(self,name) :
         #use AttrHelper
-        return get_attr_4u(self,name,_DexelaInterface)
+        return AttrHelper.get_attr_4u(self,name,_DexelaInterface)
 
 
 #==================================================================
@@ -112,12 +111,9 @@ class DexelaClass(PyTango.DeviceClass):
     class_property_list = {}
 
     device_property_list = {
-        'database_path':
+        'format_file':
         [PyTango.DevString,
-         "Database path",[database_path]],
-        'sensor_format':
-        [PyTango.DevString,
-         "Sensor Format",["sensor2923"]],
+         "Format file",[]],
         }
 
     cmd_list = {
@@ -126,12 +122,7 @@ class DexelaClass(PyTango.DeviceClass):
          [PyTango.DevVarStringArray, "Authorized String value list"]],
         }
 
-    attr_list = {
-	'full_well_mode':
-	[[PyTango.DevString,
-	  PyTango.SCALAR,
-	  PyTango.READ_WRITE]],
-        }
+    attr_list = {}
 
     def __init__(self,name) :
         PyTango.DeviceClass.__init__(self,name)
@@ -142,11 +133,11 @@ class DexelaClass(PyTango.DeviceClass):
 #----------------------------------------------------------------------------
 _DexelaInterface = None
 
-def get_control(database_path,sensor_format) :
+def get_control(format_file) :
     global _DexelaInterface
 
     if _DexelaInterface is None:
-	_DexelaInterface = DexelaAcq.Interface(database_path,sensor_format)
+        _DexelaInterface = DexelaAcq.Interface(format_file)
     return Core.CtControl(_DexelaInterface)
 
 def get_tango_specific_class_n_device():

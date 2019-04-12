@@ -1,3 +1,5 @@
+.. _lima-tango-basler:
+
 Basler Tango device
 =====================
 
@@ -8,13 +10,26 @@ you can also find some useful information about the camera models/prerequisite/i
 Properties
 ----------
 
-======================== =============== =============== ==============================================================
-Property name	         Mandatory	 Default value	 Description
-======================== =============== =============== ==============================================================
-cam_ip_address	         Yes		 N/A		 The camera's ip or hostname 
-inter_packet_delay       No              0               The inter packet delay
-frame_transmission_delay No              0               The frame transmission delay
-======================== =============== =============== ==============================================================
+======================== =============== ================================= =====================================
+Property name	         Mandatory	 Default value	                   Description
+======================== =============== ================================= =====================================
+camera_id                No              uname://*<server instance name>*  The camera ID (see details below)
+packet_size              No              8000                              the packet size
+inter_packet_delay       No              0                                 The inter packet delay
+frame_transmission_delay No              0                                 The frame transmission delay
+======================== =============== ================================= =====================================
+
+*camera_id* property identifies the camera in the network. Several types of ID might be given:
+
+* IP/hostname (examples: `ip://192.168.5.2`, `ip://white_beam_viewer1.esrf.fr`)
+* Basler serial number (example: `sn://12345678`)
+* Basler user name (example: `uname://white_beam_viewer1`)
+
+If no *camera_id* is given, it uses the server instance name as the camera user name (example, if your server is 
+called `LimaCCDs/white_beam_viewer1`, the default value for *camera_id* will be `uname://white_beam_viewer1`).
+
+To maintain backward compatibility, the old *cam_ip_address* is still supported but is considered deprecated
+and might disappear in the future.
 
 Both inter_packet_delay and frame_tranmission_delay properties can be used to tune the GiGE performance, for
 more information on how to configure a GiGE Basler camera please refer to the Basler documentation.

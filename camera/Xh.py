@@ -44,7 +44,7 @@ from Lima import Core
 from Lima import Xh as XhAcq
 # import some useful helpers to create direct mapping between tango attributes
 # and Lima interfaces.
-from AttrHelper import get_attr_4u, get_attr_string_value_list
+from Lima.Server import AttrHelper
 
 #------------------------------------------------------------------
 #------------------------------------------------------------------
@@ -65,7 +65,7 @@ class Xh(PyTango.Device_4Impl):
 
         self.init_device()
 	
-	self.__clockmode = {'XhInternalClock': 0,
+        self.__clockmode = {'XhInternalClock': 0,
 			    'XhESRF5468Mhz': 1,
 			    'XhESRF1136Mhz': 2}
 			    
@@ -92,28 +92,7 @@ class Xh(PyTango.Device_4Impl):
 #------------------------------------------------------------------
     @Core.DEB_MEMBER_FUNCT
     def getAttrStringValueList(self, attr_name):
-        valueList=[]
-        dict_name = '_' + self.__class__.__name__ + '__' + ''.join([x.title() for x in attr_name.split('_')])
-        d = getattr(self,dict_name,None)
-        if d:
-            valueList = d.keys()
-
-        return valueList
-
-    def __getDictKey(self,dict, value):
-        try:
-            ind = dict.values().index(value)                            
-        except ValueError:
-            return None
-        return dict.keys()[ind]
-
-    def __getDictValue(self,dict, key):
-        try:
-            value = dict[key]
-        except KeyError:
-            return None
-        return value
-
+        return AttrHelper.get_attr_string_value_list(self, attr_name)
 
 #------------------------------------------------------------------
 #    reset command:
@@ -134,16 +113,16 @@ class Xh(PyTango.Device_4Impl):
 #==================================================================
     @Core.DEB_MEMBER_FUNCT
     def setHeadCaps(self,argin):
-    	l = len(argin)
-    	capsAB = argin[0]
-	capsCD = argin[1]
+        l = len(argin)
+        capsAB = argin[0]
+        capsCD = argin[1]
 	
-	print l
-	print capsAB
-	print capsCD
+        print (l)
+        print (capsAB)
+        print (capsCD)
 	
 	
-    	_XhCam.setHeadCaps(capsAB,capsCD)
+        _XhCam.setHeadCaps(capsAB,capsCD)
 		
 #==================================================================
 #
@@ -152,11 +131,11 @@ class Xh(PyTango.Device_4Impl):
 #==================================================================
     @Core.DEB_MEMBER_FUNCT
     def sendCommand(self,argin):
-    	cmd = argin
+        cmd = argin
+
+        print (cmd)
 	
-	print cmd
-	
-    	_XhCam.sendCommand(cmd)
+        _XhCam.sendCommand(cmd)
 		
 #==================================================================
 #
@@ -166,7 +145,7 @@ class Xh(PyTango.Device_4Impl):
 
 
     def __getattr__(self,name) :
-        return get_attr_4u(self, name, _XhInterface)
+        return AttrHelper.get_attr_4u(self, name, _XhInterface)
 	
 	
 
@@ -178,11 +157,11 @@ class Xh(PyTango.Device_4Impl):
 #------------------------------------------------------------------	
 
     def write_clockmode(self,attr):
-	data = attr.get_write_value()
-	print data
-	clockmode = self.__getDictValue(self.__clockmode,data)
-	print clockmode
-	_XhCam.setupClock(clockmode)
+        data = attr.get_write_value()
+        print (data)
+        clockmode = AttrHelper.getDictValue(self.__clockmode,data)
+        print (clockmode)
+        _XhCam.setupClock(clockmode)
 
 #------------------------------------------------------------------
 #    write nbscans:
@@ -192,10 +171,10 @@ class Xh(PyTango.Device_4Impl):
 #------------------------------------------------------------------	
 
     def write_nbscans(self,attr):
-	data = attr.get_write_value()
-	nbscans = data
-	print nbscans
-	_XhCam.setNbScans(nbscans)
+        data = attr.get_write_value()
+        nbscans = data
+        print (nbscans)
+        _XhCam.setNbScans(nbscans)
 
 
 #------------------------------------------------------------------
@@ -206,8 +185,8 @@ class Xh(PyTango.Device_4Impl):
 #------------------------------------------------------------------	
 
     def read_nbscans(self,attr):
-	nbscans = _XhCam.getNbScans()
-	attr.set_value(nbscans)
+        nbscans = _XhCam.getNbScans()
+        attr.set_value(nbscans)
 
 #------------------------------------------------------------------
 #    read maxframes:
@@ -217,9 +196,9 @@ class Xh(PyTango.Device_4Impl):
 #------------------------------------------------------------------	
 
     def read_maxframes(self,attr):
-	maxframes_s = _XhCam.getMaxFrames()
-	maxframes = int(maxframes_s)
-	attr.set_value(maxframes)
+        maxframes_s = _XhCam.getMaxFrames()
+        maxframes = int(maxframes_s)
+        attr.set_value(maxframes)
 
 
 #------------------------------------------------------------------
@@ -292,12 +271,12 @@ def get_control(cam_ip_address = "0",port = 1972,config_name = 'config',**keys) 
     global _XhCam
     global _XhInterface
     if _XhCam is None:
-        print cam_ip_address
-	print port
-	print config_name
+        print (cam_ip_address)
+        print (port)
+        print (config_name)
 #	Core.DebParams.setTypeFlags(Core.DebParams.AllFlags)
-	_XhCam = XhAcq.Camera(cam_ip_address,int(port),config_name)
-	_XhInterface = XhAcq.Interface(_XhCam)
+        _XhCam = XhAcq.Camera(cam_ip_address,int(port),config_name)
+        _XhInterface = XhAcq.Interface(_XhCam)
     return Core.CtControl(_XhInterface)
 
 def get_tango_specific_class_n_device():

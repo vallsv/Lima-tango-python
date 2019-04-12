@@ -25,7 +25,7 @@ import sys
 
 from Lima import Core
 from Lima import PerkinElmer as PerkinElmerModule
-from AttrHelper import get_attr_4u
+from Lima.Server import AttrHelper
 
 #==================================================================
 #   PerkinElmer Class Description:
@@ -50,8 +50,8 @@ class PerkinElmer(PyTango.Device_4Impl):
                                  'OFFSET ONLY' : _PerkinElmerIterface.OffsetOnly,
                                  'OFFSET AND GAIN' : _PerkinElmerIterface.OffsetAndGain}
 	
-	self.__KeepFirstImage = {'YES' : True,
-				 'NO' : False}
+        self.__KeepFirstImage = {'YES' : True,
+                                 'NO' : False}
 	
         self.__Attribute2FunctionBase = {'gain': 'Gain',
                                          'correction_mode': 'CorrectionMode',
@@ -78,7 +78,7 @@ class PerkinElmer(PyTango.Device_4Impl):
 #==================================================================
 
     def __getattr__(self,name) :
-        return get_attr_4u(self,name,_PerkinElmerIterface)
+        return AttrHelper.get_attr_4u(self,name,_PerkinElmerIterface)
 	
 #==================================================================
 #
@@ -94,7 +94,7 @@ class PerkinElmer(PyTango.Device_4Impl):
 #------------------------------------------------------------------
     @Core.DEB_MEMBER_FUNCT
     def getAttrStringValueList(self, attr_name):
-        return get_attr_string_value_list(self, attr_name)
+        return AttrHelper.get_attr_string_value_list(self, attr_name)
 
     @Core.DEB_MEMBER_FUNCT
     def startAcqOffsetImage(self,nbImageNtime) :
