@@ -1731,7 +1731,7 @@ class LimaCCDs(PyTango.Device_4Impl) :
     @Core.DEB_MEMBER_FUNCT
     def _image_2_data_array(self, data, category):
         d = data.buffer
-        s = [d.shape[i] for i in xrange(len(d.shape) - 1, -1, -1)]
+        s = [d.shape[i] for i in range(len(d.shape) - 1, -1, -1)]
         if (category == self.DataArrayCategory.ImageStack) and (len(s) == 2):
             s += [1]
         nbDim = len(s)
