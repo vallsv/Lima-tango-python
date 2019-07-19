@@ -444,33 +444,33 @@ For more details about the camera device interface, please have a look on the fo
 .. toctree::
   :maxdepth: 1
 
-  Andor <camera/andor>
-  Andor3 <camera/andor3>
-  Basler <camera/basler>
-  Dexela <camera/dexela>
-  Frelon <camera/frelon>
-  ImXPAD <camera/imxpad>
-  Maxipix <camera/maxipix>
-  Merlin <camera/merlin>
-  Dectris Eiger <camera/eiger>
-  Dectris Mythen3 <camera/mythen3>
-  Dectris Pilatus <camera/pilatus>
-  PCO <camera/pco>
-  Perkin Elmer <camera/perkinelmer>
-  Pixirad <camera/pixirad>
-  Photonic Science <camera/photonicscience>
-  PointGrey <camera/pointgrey>
-  Prosilica <camera/prosilica>
-  Rayonix HS <camera/rayonixhs>
-  Roper Scientific <camera/roperscientific>
-  Simulator <camera/simulator>
-  SlsDetector <camera/slsdetector>
-  Ueye <camera/ueye>
-  Ultra <camera/ultra>
-  V4l2 <camera/v4l2>
-  XH <camera/xh>
-  Xpad <camera/xpad>
-  Xspress3 <camera/xspress3>
+  Andor <../../../../camera/andor/doc/tango>
+  Andor3 <../../../../camera/andor3doc/tango>
+  Basler <../../../../camera/basler/doc/tango>
+  Dexela <../../../../camera/dexela/doc/tango>
+  Frelon <../../../../camera/frelon/doc/tango>
+  ImXPAD <../../../../camera/imxpad/doc/tango>
+  Maxipix <../../../../camera/maxipix/doc/tango>
+  Merlin <../../../../camera/merlin/doc/tango>
+  Dectris Eiger <../../../../camera/eiger/doc/tango>
+  Dectris Mythen3 <../../../../camera/mythen3/doc/tango>
+  Dectris Pilatus <../../../../camera/pilatus/doc/tango>
+  PCO <../../../../camera/pco/doc/tango>
+  Perkin Elmer <../../../../camera/perkinelmer/doc/tango>
+  Pixirad <../../../../camera/pixirad/doc/tango>
+  Photonic Science <../../../../camera/photonicscience/doc/tango>
+  PointGrey <../../../../camera/pointgrey/doc/tango>
+  Prosilica <../../../../camera/prosilica/doc/tango>
+  Rayonix HS <../../../../camera/rayonixhs/doc/tango>
+  Roper Scientific <../../../../camera/roperscientific/doc/tango>
+  Simulator <../../../../camera/simulator/doc/tango>
+  SlsDetector <../../../../camera/slsdetector/doc/tango>
+  Ueye <../../../../camera/ueye/doc/tango>
+  Ultra <../../../../camera/ultra/doc/tango>
+  V4l2 <../../../../camera/v4l2/doc/tango>
+  XH <../../../../camera/xh/doc/tango>
+  Xpad <../../../../camera/xpad/doc/tango>
+  Xspress3 <../../../../camera/xspress3/doc/tango>
 
 
 Plugin devices: software operation and extra interfaces
