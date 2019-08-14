@@ -450,6 +450,7 @@ For more details about the camera device interface, please have a look on the fo
   Dexela <../../../../camera/dexela/doc/tango>
   Frelon <../../../../camera/frelon/doc/tango>
   ImXPAD <../../../../camera/imxpad/doc/tango>
+  Marccd <../../../../camera/marccd/doc/tango>
   Maxipix <../../../../camera/maxipix/doc/tango>
   Merlin <../../../../camera/merlin/doc/tango>
   Dectris Eiger <../../../../camera/eiger/doc/tango>
