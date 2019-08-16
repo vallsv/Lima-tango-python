@@ -40,5 +40,7 @@ def _init_module() :
         for ep in pkg_resources.iter_entry_points('Lima_tango_plugin'):
             plugins.append(ep.name)
 
+    return plugins
+
 __all__ = _init_module()
 
