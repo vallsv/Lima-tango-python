@@ -64,6 +64,7 @@ LimaCameraType = None
 from .EnvHelper import get_sub_devices
 from .EnvHelper import get_lima_camera_type, get_lima_device_name
 from .EnvHelper import create_tango_objects
+from .EnvHelper import get_camera_module, get_plugin_module
 from .AttrHelper import get_attr_4u
 from Lima.Server.AttrHelper import getDictKey, getDictValue
 from Lima import Core
@@ -382,7 +383,7 @@ class LimaCCDs(PyTango.Device_4Impl) :
     @Core.DEB_MEMBER_FUNCT
     def delete_device(self) :
         try:
-            m = __import__('Lima.Server.camera.%s' % (self.LimaCameraType),None,None,'Lima.Server.camera.%s' % (self.LimaCameraType))
+            m = get_camera_module(self.LimaCameraType)
         except ImportError:
             pass
         else:
@@ -424,8 +425,7 @@ class LimaCCDs(PyTango.Device_4Impl) :
             pass
         else:
             try:
-                m = __import__('Lima.Server.plugins.%s' % (accThresholdCallbackModule),None,None,
-                               'Lima.Server.plugins.%s' % (accThresholdCallbackModule))
+                m = get_plugin_module(accThresholdCallbackModule)
             except ImportError:
                 deb.Error("Couldn't import plugins.%s" % accThresholdCallbackModule)
             else:
@@ -2516,17 +2516,21 @@ def declare_camera_n_commun_to_tango_world(util) :
         try:
             if LimaCameraType and (module_name != LimaCameraType):
                 continue
-            m = __import__('Lima.Server.camera.%s' % (module_name),None,None,'Lima.Server.camera.%s' % (module_name))
+            m = get_camera_module(module_name)
         except ImportError:
             continue
         else:
             try:
                 func = getattr(m,'get_tango_specific_class_n_device')
-                specificClass,specificDevice = func()
+                class_info = func()
             except AttributeError:
                 pass
             else:
-                util.add_TgClass(specificClass,specificDevice,specificDevice.__name__)
+                if isinstance(class_info, (list, tuple)):
+                    specificClass, specificDevice = class_info
+                else:
+                    specificClass, specificDevice = class_info.TangoClassClass, class_info
+                util.add_class(specificClass, specificDevice)
             try:
                 func = getattr(m, 'get_taco_specific_cmd_list_n_proxy_cont')
                 cmd_list, proxy_cont = func()
@@ -2537,7 +2541,7 @@ def declare_camera_n_commun_to_tango_world(util) :
     warningFlag = False
     for module_name in plugins.__all__:
         try:
-            m = __import__('Lima.Server.plugins.%s' % (module_name),None,None,'Lima.Server.plugins.%s' % (module_name))
+            m = get_plugin_module(module_name)
         except ImportError:
             print ("Warning optional plugin %s can't be load, dependency not satisfied." % module_name)
             warningFlag = True
@@ -2558,8 +2562,12 @@ def declare_camera_n_commun_to_tango_world(util) :
             except AttributeError:
                 continue
             else:
-                specificClass,specificDevice = func()
-                util.add_TgClass(specificClass,specificDevice,specificDevice.__name__)
+                class_info = func()
+                if isinstance(class_info, (list, tuple)):
+                    specificClass, specificDevice = class_info
+                else:
+                    specificClass, specificDevice = class_info.TangoClassClass, class_info
+                util.add_class(specificClass, specificDevice)
     if warningFlag and verboseLevel < 4:
         print ("For more plugins dependency information start server with -v4")
 
@@ -2572,7 +2580,7 @@ def export_default_plugins() :
         beamlineName,_,cameraName = masterDeviceName.split('/')
         for module_name in plugins.__all__:
             try:
-                m = __import__('Lima.Server.plugins.%s' % (module_name),None,None,'Lima.Server.plugins.%s' % (module_name))
+                m = get_plugin_module(module_name)
             except ImportError:
                 continue
             else:
@@ -2612,7 +2620,7 @@ def export_ct_control(ct_map):
 def _set_control_ref(ctrl_ref) :
     for module_name in plugins.__all__:
         try:
-            m = __import__('Lima.Server.plugins.%s' % (module_name),None,None,'Lima.Server.plugins.%s' % (module_name))
+            m = get_plugin_module(module_name)
         except ImportError:
             continue
         else:
@@ -2683,9 +2691,8 @@ def _get_control():
     except KeyError:            # wizard mode
         return None
 
-    mod_name = 'Lima.Server.camera.' + camera_type
     try:
-        m = __import__(mod_name, None, None, mod_name)
+        m = get_camera_module(camera_type)
     except ImportError:
         import traceback
         traceback.print_exc()
@@ -2693,12 +2700,16 @@ def _get_control():
         properties = {}
         className2deviceName = get_sub_devices()
         try:
-            _, specificDevice = m.get_tango_specific_class_n_device()
+            class_info = m.get_tango_specific_class_n_device()
         except AttributeError:
             import traceback
             traceback.print_exc()
             pass
         else:
+            if isinstance(class_info, (list, tuple)):
+                _, specificDevice = class_info
+            else:
+                specificDevice = class_info
             typeFlagsNameList = []
             for l in range(verboseLevel + 1):
                 typeFlagsNameList += VerboseLevel2TypeFlags.get(l, [])
@@ -2726,10 +2737,13 @@ def _get_control():
 #
 #==================================================================
 verboseLevel = 0
-def main() :
+def main(args=None) :
+    args = list(args or sys.argv)
+    args[0] = 'LimaCCDs'
+
     global verboseLevel
     verboseLevel = 0
-    for option in sys.argv:
+    for option in args:
         if option.startswith('-v'):
             try:
                 verboseLevel = int(option[2:])
@@ -2738,7 +2752,7 @@ def main() :
     pytango_ver = PyTango.__version_info__[:3]
 
     try:
-        py = PyTango.Util(sys.argv)
+        py = PyTango.Util(args)
         py.add_TgClass(LimaCCDsClass,LimaCCDs,'LimaCCDs')
         try:
             declare_camera_n_commun_to_tango_world(py)

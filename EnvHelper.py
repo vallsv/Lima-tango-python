@@ -31,6 +31,12 @@ import functools
 
 import PyTango
 
+try:
+    import pkg_resources
+except ImportError:
+    pkg_resources = None
+
+
 ModDepend = ['Core', 'Espia']
 Debug = 0
 LimaDir = None
@@ -51,10 +57,7 @@ def get_server_name(argv=None):
     """
     if argv is None:
         argv = sys.argv
-    full_exec_name = argv[0]
-    exec_name = os.path.split(full_exec_name)[-1]
-    exec_name = os.path.splitext(exec_name)[0]
-    return "/".join((exec_name, argv[1]))
+    return 'LimaCCDs/' + argv[1]
 
 def get_device_class_map(server=None, cache=True):
     """
@@ -442,3 +445,40 @@ def create_tango_objects(ct_control, name_template):
     tango_ct_map[tango_ct_control_name] = tango_ct_control, tango_object
 
     return server, tango_ct_map
+
+
+def _import(name):
+    __import__(name)
+    return sys.modules[name]
+
+
+def get_entry_point(group, name):
+    # try to find an extension using setuptools entry points
+    if pkg_resources is None:
+        return None
+    entry_points = tuple(pkg_resources.iter_entry_points(group, name))
+    if not entry_points:
+        return None
+    elif len(entry_points) > 1:
+        raise ValueError('found more than one entry point matching {}'.format(name))
+    return entry_points[0]
+
+
+def get_camera_module(name):
+    """Returns the python module for the given camera type"""
+    entry_point = get_entry_point('Lima_tango_camera', name)
+    if entry_point is None:
+        # fallback to search in local camera directory
+        mod_name = 'Lima.Server.camera.{}'.format(name)
+        return _import(mod_name)
+    return entry_point.load()
+
+
+def get_plugin_module(name):
+    """Returns the python module for the given plugin type"""
+    entry_point = get_entry_point('Lima_tango_plugin', name)
+    if entry_point is None:
+        # fallback to search in local plugins directory
+        mod_name = 'Lima.Server.plugins.{}'.format(name)
+        return _import(mod_name)
+    return entry_point.load()
