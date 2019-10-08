@@ -51,7 +51,7 @@ class FlatfieldDeviceServer(BasePostProcess) :
                                                     self.FLATFIELD_TASK_NAME,
                                                     self._runLevel)
                 self.__flatFieldTask.setFlatFieldImage(self.__flatFieldImage, self.__normalize)
-        PyTango.Device_4Impl.set_state(self,state)
+        PyTango.LatestDeviceImpl.set_state(self,state)
 
     def setFlatFieldImage(self,filepath) :
         self.__flatFieldImage = getDataFromFile(filepath)

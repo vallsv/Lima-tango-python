@@ -122,7 +122,7 @@ class BpmDeviceServer(BasePostProcess):
                     handler.setSinkTask(self._BVDataTask)
 
 
-        PyTango.Device_4Impl.set_state(self,state)
+        PyTango.LatestDeviceImpl.set_state(self,state)
 
     def init_palette(self):
         greyscale_palette = numpy.zeros((65536,3), dtype=numpy.uint8)

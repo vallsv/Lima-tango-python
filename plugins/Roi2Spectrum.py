@@ -72,7 +72,7 @@ class Roi2spectrumDeviceServer(BasePostProcess) :
                                                       self._runLevel)
             self.__roi2spectrumMgr.clearCounterStatus()
 
-        PyTango.Device_4Impl.set_state(self,state)
+        PyTango.LatestDeviceImpl.set_state(self,state)
 
 #------------------------------------------------------------------
 #    Read BufferSize attribute

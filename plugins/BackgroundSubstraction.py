@@ -63,7 +63,7 @@ class BackgroundSubstractionDeviceServer(BasePostProcess) :
                     import traceback
                     traceback.print_exc()
                     return
-        PyTango.Device_4Impl.set_state(self,state)
+        PyTango.LatestDeviceImpl.set_state(self,state)
 
     def read_delete_dark_after_read(self,attr) :
         attr.set_value(self.__deleteDarkAfterRead)

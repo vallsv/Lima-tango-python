@@ -75,7 +75,7 @@ class PeakFinderDeviceServer(BasePostProcess) :
                                                     self._runLevel)
             self.__peakFinderMgr.clearCounterStatus()
             
-        PyTango.Device_4Impl.set_state(self,state)
+        PyTango.LatestDeviceImpl.set_state(self,state)
 
 #------------------------------------------------------------------
 #    Read BufferSize attribute
