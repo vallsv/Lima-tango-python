@@ -27,6 +27,7 @@ import processlib
 import time
 import struct
 import threading
+
 from Lima import Core
 from Lima.Server.plugins.Utils import BasePostProcess
 
@@ -70,9 +71,6 @@ class BpmDeviceServer(BasePostProcess):
         self._softOp = None
         self._bpmManager = None
         self.bvdata = None
-        self.autoscale = False
-        self.color_map = False
-        self.lut_method = "LINEAR"
         self._BVDataTask = None
         self.bkg_substraction_handler = None        
 
@@ -85,9 +83,8 @@ class BpmDeviceServer(BasePostProcess):
     def init_device(self):
         self.get_device_properties(self.get_device_class())
         if self.enable_tango_event:
-            for attr in ("intensity", "proj_x", "proj_y",
-                        "fwhm_x", "fwhm_y", "txy", "x", "y", "bvdata"):
-                self.set_change_event(attr, True, False)
+            # enable event push for bvdata attribute
+            self.set_change_event('bvdata', True, False)
 
 
     def set_state(self,state) :
@@ -318,16 +315,23 @@ class BpmDeviceServer(BasePostProcess):
     def write_autoscale(self,attr):
         data = attr.get_write_value()
         self.autoscale = data
+        #update the property
+        prop = {'autoscale': data}
+        PyTango.Database().put_device_property(self.get_name(), prop)        
 
     def read_lut_method(self,attr):
         attr.set_value(self.lut_method)
 
     def write_lut_method(self,attr):
         data = attr.get_write_value()
-        if data == "LINEAR" or data == "LOG":
+        if data.upper() == "LINEAR" or data.upper() == "LOG":
             self.lut_method=data
-        else:
-            print ("wrong lut method, 'LINEAR' or 'LOG'") #maybe error message
+            #update the property
+            prop = {'lut_method': data}
+            PyTango.Database().put_device_property(self.get_name(), prop)
+        
+        else:            
+            print ("wrong lut method, 'LINEAR' or 'LOG'")
     
     def read_color_map(self,attr):
         attr.set_value(self.color_map)
@@ -335,7 +339,10 @@ class BpmDeviceServer(BasePostProcess):
     def write_color_map(self,attr):
         data = attr.get_write_value()
         self.color_map=data
-
+        #update the property
+        prop = {'color_map': data}
+        PyTango.Database().put_device_property(self.get_name(), prop)
+        
     def read_calibration(self, attr):
         if None not in self.calibration:
             attr.set_value(self.calibration)
@@ -344,6 +351,9 @@ class BpmDeviceServer(BasePostProcess):
     def write_calibration(self, attr):
         data = attr.get_write_value()
         self.calibration = data
+        #update the property
+        prop = {'calibration': data}
+        PyTango.Database().put_device_property(self.get_name(), prop)
 
         
     def read_beammark(self, attr):
@@ -354,6 +364,9 @@ class BpmDeviceServer(BasePostProcess):
         data = attr.get_write_value()
         self.beammark[0] = data[0]
         self.beammark[1] = data[1]
+        #update the property
+        prop = {'beammark': data}
+        PyTango.Database().put_device_property(self.get_name(), prop)
 
 
     def read_bvdata(self,attr):
@@ -388,6 +401,20 @@ class BpmDeviceServerClass(PyTango.DeviceClass):
          [1.0,1.0] ],
         "beammark":
         [PyTango.DevVarLongArray,
+         "Array containing BeamMark positions (X,Y)",
+         [0,0] ],
+        "lut_method":
+        [PyTango.DevString,
+         "LUT method for colormap conversion, linear/log",
+         ["LINEAR"] ],
+        "autoscale":
+        [PyTango.DevBoolean,
+         "Set true or false autoscaling to min/max",
+         True],
+        "color_map":
+        [PyTango.DevBoolean,
+         "Set true or false colored map (temperature)",
+         False],        
 	}
 
 
@@ -461,13 +488,12 @@ class BVDataTask(Core.Processlib.SinkTaskBase):
             while task._stop is False:
 
                 with task._lock:
-                    while (task._data is None and
+                    while (task._new_frame_ready is False and
                            task._stop is False):
                         task._lock.wait()
                     if task._stop:
                         break
-                    task._data = None
-                    task._stat = None
+                    task._new_frame_ready = False
 
                 dt = time.time() - self.timestamp
                 if dt>0.04:
@@ -480,8 +506,7 @@ class BVDataTask(Core.Processlib.SinkTaskBase):
         self._bpm_device = bpm_device
         self._bpm_manager = bpm_manager
         self._lock = threading.Condition()
-        self._data = None
-        self._stat = None
+        self._new_frame_ready = False
         self._stop = False
         self._pushing_event_thread = self._PushingThread(self)
         self._pushing_event_thread.start()
@@ -490,16 +515,24 @@ class BVDataTask(Core.Processlib.SinkTaskBase):
         self._stop=True
         self._pushing_event_thread.join()
 
-
     def process(self, data):        
         with self._lock:
-            self._data = Core.Processlib.Data(data)
+            # just inform pushing_thread of a new image
+            self._new_frame_ready = True
             self._lock.notify()
-            
 
+#------------------------------------------------------------------
+# The BVDATA DevEncoded generator function
+# Build the jpeg image and concatenate with bpm statistics
+# It use PIL (pillow) for RGB conversion
+#------------------------------------------------------------------
 def construct_bvdata(bpm):
+    # just read the last image
     image = _control_ref().ReadImage()
-    last_acq_time, last_x, last_y, last_intensity, last_fwhm_x, last_fwhm_y, last_max_intensity, last_proj_x, last_proj_y = bpm.get_bpm_result(image.frameNumber, image.timestamp) 
+    
+    last_acq_time, last_x, last_y, last_intensity,\
+    last_fwhm_x, last_fwhm_y, last_max_intensity,\
+    last_proj_x, last_proj_y = bpm.get_bpm_result(image.frameNumber, image.timestamp) 
     lima_roi = _control_ref().image().getRoi()
     roi_top_left = lima_roi.getTopLeft()
     roi_size = lima_roi.getSize()
