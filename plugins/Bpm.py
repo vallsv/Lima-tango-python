@@ -21,17 +21,15 @@
 ############################################################################
 
 import itertools
-import weakref
 import PyTango
-import sys
 import numpy
 import processlib
 import time
 import struct
+import threading
 from Lima import Core
 from Lima.Server.plugins.Utils import BasePostProcess
-#pixmaptools
-import os
+
 
 # PIL an StringIO, py2 vs. py3 
 try:
@@ -77,14 +75,9 @@ class BpmDeviceServer(BasePostProcess):
         self.lut_method = "LINEAR"
         self._BVDataTask = None
         self.bkg_substraction_handler = None        
-#######PALETTE INIT
-
-
 
         self.palette = self.init_palette()
-        
 
-#######
         BasePostProcess.__init__(self,cl,name)
         self.init_device()
 
@@ -142,12 +135,6 @@ class BpmDeviceServer(BasePostProcess):
         color_palette[65536-65536//4:65536,1]=numpy.linspace(255,0,65536//4)
 
         return { "grey":greyscale_palette, "color":color_palette}
-
-
-
-
-
-
 
 
 #------------------------------------------------------------------
@@ -274,7 +261,7 @@ class BpmDeviceServer(BasePostProcess):
             profile_y = result.profile_y.buffer.astype(numpy.int)
         except:
             profile_y = numpy.array([],dtype=numpy.int)
-        
+                    
         acq_time=t
         result_array = [acq_time,x,y,intensity,fwhm_x,fwhm_y,max_intensity,profile_x,profile_y]
         return result_array
@@ -393,16 +380,14 @@ class BpmDeviceServerClass(PyTango.DeviceClass):
     device_property_list = {
         "enable_tango_event":
         [PyTango.DevBoolean,
-        "Enable or disable the push event on bvdata attribute",
+         "Enable or disable the push event on bvdata attribute",
         True],
         "calibration":
         [PyTango.DevVarDoubleArray,
-        "Array containing calibX and calibY",
-        [1.0,1.0] ],
+         "Array containing calibX and calibY",
+         [1.0,1.0] ],
         "beammark":
         [PyTango.DevVarLongArray,
-        "Array containing BeamMark positions (X,Y)",
-        [0,0] ]
 	}
 
 
@@ -462,7 +447,6 @@ class BpmDeviceServerClass(PyTango.DeviceClass):
         PyTango.DeviceClass.__init__(self, name)
         self.set_type(name)
 
-import threading
 class BVDataTask(Core.Processlib.SinkTaskBase):
     Core.DEB_CLASS(Core.DebModApplication, "BVDataTask")
 
@@ -490,9 +474,7 @@ class BVDataTask(Core.Processlib.SinkTaskBase):
                     bvdata, bvdata_format = construct_bvdata(self._task._bpm_device)
                     self._task._bpm_device.push_change_event("bvdata", bvdata_format, bvdata)
                     self.timestamp=time.time()
-                
-                
-            
+
     def __init__(self, bpm_manager, bpm_device):
         Core.Processlib.SinkTaskBase.__init__(self)
         self._bpm_device = bpm_device
