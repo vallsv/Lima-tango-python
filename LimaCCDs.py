@@ -375,7 +375,6 @@ class LimaCCDs(PyTango.LatestDeviceImpl) :
         self.__image_number_header_delimiter = ';'
         self.__readImage_frame_number = 0
         self.__configInit = False
-        print('YO')
        
 #------------------------------------------------------------------
 #    Device destructor

@@ -82,6 +82,7 @@ class BpmDeviceServer(BasePostProcess):
 
     def init_device(self):
         self.get_device_properties(self.get_device_class())
+        print("Bpm: Tango eventing ", "ENABLE" if self.enable_tango_event else "DISABLE")
         if self.enable_tango_event:
             # enable event push for bvdata attribute
             self.set_change_event('bvdata', True, False)
