@@ -53,7 +53,7 @@ class MaskDeviceServer(BasePostProcess) :
                                                self.MASK_TASK_NAME,
                                                self._runLevel)
                 self.__maskTask.setMaskImage(self.__maskImage)
-        PyTango.Device_4Impl.set_state(self,state)
+        PyTango.LatestDeviceImpl.set_state(self,state)
 
     def setMaskImage(self,filepath) :
         self.__maskImage = getDataFromFile(filepath)

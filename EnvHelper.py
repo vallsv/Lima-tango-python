@@ -436,7 +436,7 @@ def create_tango_objects(ct_control, name_template):
         tango_object = server.register_object(tango_ct, tango_ct_name, ct_name,
                                               member_filter=__filter)
         tango_ct_map[tango_ct_name] = tango_ct, tango_object
-        print("ctcontrol.{0}() = {1}".format(ct_func_name, getattr(tango_ct_control, ct_func_name)()))
+        #print("ctcontrol.{0}() = {1}".format(ct_func_name, getattr(tango_ct_control, ct_func_name)()))
 
     tango_object = server.register_object(tango_ct_control,
                                           tango_ct_control_name,

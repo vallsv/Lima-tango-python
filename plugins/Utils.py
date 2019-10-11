@@ -60,11 +60,11 @@ def getDatasFromFile(filepath,fromIndex = 0,toIndex = -1) :
         return returnDatas
 
 
-class BasePostProcess(PyTango.Device_4Impl) :
+class BasePostProcess(PyTango.LatestDeviceImpl) :
 
     def __init__(self,*args) :
         self._runLevel = 0
-        PyTango.Device_4Impl.__init__(self,*args)
+        PyTango.LatestDeviceImpl.__init__(self,*args)
 
     def __getattr__(self,name) :
         if name.startswith('is_') and name.endswith('_allowed') :

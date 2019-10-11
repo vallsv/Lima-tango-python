@@ -58,7 +58,7 @@ import time
 ## Device States Description
 ## No states for this device
 
-class LimaViewer (PyTango.Device_4Impl):
+class LimaViewer (PyTango.LatestDeviceImpl):
 
     #--------- Add you global variables here --------------------------
     #----- PROTECTED REGION ID(LimaViewer.global_variables) ENABLED START -----#
@@ -68,7 +68,7 @@ class LimaViewer (PyTango.Device_4Impl):
     #----- PROTECTED REGION END -----#  //  LimaViewer.global_variables
 
     def __init__(self,cl, name):
-        PyTango.Device_4Impl.__init__(self,cl,name)
+        PyTango.LatestDeviceImpl.__init__(self,cl,name)
         self.debug_stream("In __init__()")
         #----- PROTECTED REGION ID(LimaViewer.__init__) ENABLED START -----#
         self.ImageType2NumpyType = {

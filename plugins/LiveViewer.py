@@ -73,7 +73,7 @@ class MyImageAttr(PyTango.ImageAttr):
 ## Device States Description
 ## No states for this device
 
-class LiveViewer (PyTango.Device_4Impl):
+class LiveViewer (PyTango.LatestDeviceImpl):
     Core.DEB_CLASS(Core.DebModApplication, 'LimaCCDs')
 
     attr_Exposure_Time = 1 
@@ -86,7 +86,7 @@ class LiveViewer (PyTango.Device_4Impl):
 #------------------------------------------------------------------
     @Core.DEB_MEMBER_FUNCT
     def __init__(self,cl, name):
-        PyTango.Device_4Impl.__init__(self,cl,name)
+        PyTango.LatestDeviceImpl.__init__(self,cl,name)
         self.init_device()
 
 #------------------------------------------------------------------
@@ -119,7 +119,7 @@ class LiveViewer (PyTango.Device_4Impl):
         try:
             self.interface.setFrameRate(self.attr_Frame_Rate)
         except:
-            print ("Warning: setFrameRate() not supported")
+            self.warn_stream("setFrameRate() not supported")
 
         if self.AcquisitionAutoStart:
             self.control.prepareAcq()

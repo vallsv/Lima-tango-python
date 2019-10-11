@@ -96,7 +96,7 @@ DevErrCcdProcessImage		= DevCcdBase + 13
 #   DevState.FAULT :  ccd is in FAULT, cannot take pictures
 #==================================================================
 
-class LimaTacoCCDs(PyTango.Device_4Impl, object):
+class LimaTacoCCDs(PyTango.LatestDeviceImpl, object):
 
     Core.DEB_CLASS(Core.DebModApplication, 'LimaTacoCCDs')
 
@@ -166,7 +166,7 @@ class LimaTacoCCDs(PyTango.Device_4Impl, object):
 #    Device constructor
 #------------------------------------------------------------------
     def __init__(self,cl, name):
-        PyTango.Device_4Impl.__init__(self,cl,name)
+        PyTango.LatestDeviceImpl.__init__(self,cl,name)
         self.init_device()
         try: 
             self.__bpm_mgr  = processlib.Tasks.BpmManager()

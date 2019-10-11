@@ -128,7 +128,7 @@ def RequiresSystemFeature(feature):
         return unsupported_method
     return method_decorator
 
-class LimaCCDs(PyTango.Device_4Impl) :
+class LimaCCDs(PyTango.LatestDeviceImpl) :
 
     Core.DEB_CLASS(Core.DebModApplication, 'LimaCCDs')
     _debugModuleList = ["None",
@@ -365,7 +365,7 @@ class LimaCCDs(PyTango.Device_4Impl) :
 #    Device constructor
 #------------------------------------------------------------------
     def __init__(self,*args) :
-        PyTango.Device_4Impl.__init__(self,*args)
+        PyTango.LatestDeviceImpl.__init__(self,*args)
         self.__className2deviceName = {}
         self.init_device()
         self.__lima_control = None
@@ -375,7 +375,6 @@ class LimaCCDs(PyTango.Device_4Impl) :
         self.__image_number_header_delimiter = ';'
         self.__readImage_frame_number = 0
         self.__configInit = False
-        print('YO')
        
 #------------------------------------------------------------------
 #    Device destructor
