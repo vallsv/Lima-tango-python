@@ -60,6 +60,7 @@ def grouper(n, iterable, padvalue=None):
 
 
 class BpmDeviceServer(BasePostProcess):
+    Core.DEB_CLASS(Core.DebModApplication, 'BpmDeviceServer')
 
 #--------- Add you global variables here --------------------------
     BPM_TASK_NAME = "BpmTask"
@@ -67,6 +68,7 @@ class BpmDeviceServer(BasePostProcess):
 #------------------------------------------------------------------
 #    Device constructor
 #------------------------------------------------------------------
+    @Core.DEB_MEMBER_FUNCT
     def __init__(self,cl, name):
         self._softOp = None
         self._bpmManager = None
@@ -80,14 +82,14 @@ class BpmDeviceServer(BasePostProcess):
         self.init_device()
 
 
+    @Core.DEB_MEMBER_FUNCT
     def init_device(self):
         self.get_device_properties(self.get_device_class())
-        print("Bpm: Tango eventing ", "ENABLE" if self.enable_tango_event else "DISABLE")
         if self.enable_tango_event:
             # enable event push for bvdata attribute
             self.set_change_event('bvdata', True, False)
 
-
+    @Core.DEB_MEMBER_FUNCT
     def set_state(self,state) :
         if(state == PyTango.DevState.OFF) :
             if(self._softOp) :
