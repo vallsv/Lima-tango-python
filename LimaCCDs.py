@@ -2609,9 +2609,9 @@ def export_ct_control(ct_map):
         if tango_class_name in tango_dev_map:
             continue
         try:
-            print("Creating device {0}({1})...".format(tango_class_name, name))
+            #print("Creating device {0}({1})...".format(tango_class_name, name))
             util.create_device(tango_class_name, name)
-            print("Done")
+            #print("Done")
         except:
             import traceback
             traceback.print_exc()
