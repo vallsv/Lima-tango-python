@@ -322,6 +322,9 @@ class BpmDeviceServer(BasePostProcess):
         prop = {'autoscale': data}
         PyTango.Database().put_device_property(self.get_name(), prop)        
 
+    def is_autoscale_allowed(self,mode) :
+        return True
+
     def read_lut_method(self,attr):
         attr.set_value(self.lut_method)
 
@@ -335,6 +338,9 @@ class BpmDeviceServer(BasePostProcess):
         
         else:            
             print ("wrong lut method, 'LINEAR' or 'LOG'")
+
+    def is_lut_method_allowed(self,mode) :
+        return True
     
     def read_color_map(self,attr):
         attr.set_value(self.color_map)
@@ -345,6 +351,9 @@ class BpmDeviceServer(BasePostProcess):
         #update the property
         prop = {'color_map': data}
         PyTango.Database().put_device_property(self.get_name(), prop)
+
+    def is_color_map_allowed(self,mode) :
+        return True
         
     def read_calibration(self, attr):
         if None not in self.calibration:
@@ -358,6 +367,8 @@ class BpmDeviceServer(BasePostProcess):
         prop = {'calibration': data}
         PyTango.Database().put_device_property(self.get_name(), prop)
 
+    def is_calibration_allowed(self,mode) :
+        return True
         
     def read_beammark(self, attr):
         if None not in self.beammark:
@@ -371,6 +382,8 @@ class BpmDeviceServer(BasePostProcess):
         prop = {'beammark': data}
         PyTango.Database().put_device_property(self.get_name(), prop)
 
+    def is_beammark_allowed(self,mode) :
+        return True
 
     def read_bvdata(self,attr):
         self.bvdata = None
