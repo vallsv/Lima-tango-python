@@ -43,6 +43,14 @@ try:
 except ImportError:
     from io import BytesIO as StringIO
     
+# 3-4x faster jpeg encoding than PIL
+# https://github.com/lilohuang/PyTurboJPEG
+try:
+    from turbojpeg import TurboJPEG, TJPF_RGB
+    turbo_jpeg = TurboJPEG()
+except ImportError:
+    turbo_jpeg = None
+
 import base64
 import math
 
@@ -385,6 +393,19 @@ class BpmDeviceServer(BasePostProcess):
     def is_beammark_allowed(self,mode) :
         return True
 
+    def read_jpeg_quality(self, attr):
+        attr.set_value(self.jpeg_quality)
+
+    def write_jpeg_quality(self, attr):
+        data = attr.get_write_value()
+        self.jpeg_quality = data
+        #update the property
+        prop = {'jpeg_quality': data}
+        PyTango.Database().put_device_property(self.get_name(), prop)
+
+    def is_jpeg_quality_allowed(self,mode) :
+        return True
+
     def read_bvdata(self,attr):
         self.bvdata = None
         self.bvdata_format = None
@@ -430,7 +451,11 @@ class BpmDeviceServerClass(PyTango.DeviceClass):
         "color_map":
         [PyTango.DevBoolean,
          "Set true or false colored map (temperature)",
-         False],        
+         False],
+         'jpeg_quality':
+         [PyTango.DevLong,
+         "Set jpeg encoding quality from 1-100",
+         80]
 	}
 
 
@@ -479,7 +504,8 @@ class BpmDeviceServerClass(PyTango.DeviceClass):
         'color_map': [[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ_WRITE ]],
         'bvdata':[[PyTango.DevEncoded, PyTango.SCALAR, PyTango.READ]],
         'calibration': [[PyTango.DevDouble, PyTango.SPECTRUM, PyTango.READ_WRITE, 2 ]],
-        'beammark': [[PyTango.DevLong, PyTango.SPECTRUM, PyTango.READ_WRITE, 2 ]]
+        'beammark': [[PyTango.DevLong, PyTango.SPECTRUM, PyTango.READ_WRITE, 2 ]],
+        'jpeg_quality': [[PyTango.DevLong, PyTango.SCALAR, PyTango.READ_WRITE]]
     }
 
 
@@ -602,7 +628,11 @@ def construct_bvdata(bpm):
         img_buffer = bpm.palette["grey"].take(scale_image, axis=0)
 
     I = Image.fromarray(img_buffer, "RGB")
-    I.save(jpegFile, "jpeg", quality=95)
+    if turbo_jpeg:
+        jpegFile.write(turbo_jpeg.encode(numpy.asarray(I), pixel_format=TJPF_RGB, quality=bpm.jpeg_quality))
+    else:
+        I.save(jpegFile, "jpeg", quality=bpm.jpeg_quality)
+
     raw_jpeg_data = jpegFile.getvalue()
     image_jpeg = base64.b64encode(raw_jpeg_data)
     profil_x = last_proj_x.tobytes()
