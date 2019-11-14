@@ -621,7 +621,23 @@ class LimaCCDs(PyTango.LatestDeviceImpl) :
         for feature in SystemFeatures:
             is_not = (SystemHasFeature(feature) and 'is') or 'is not'
             deb.Trace('Feature %s %s present' % (feature, is_not))
-                
+
+        # Add shutter capability related attributes if supported
+        if self.__control.shutter().hasCapability():
+            self.add_attribute(
+                PyTango.Attr('shutter_close_time', PyTango.DevDouble, PyTango.READ_WRITE),
+                             self.read_shutter_close_time, self.write_shutter_close_time)
+            self.add_attribute(
+                PyTango.Attr('shutter_manual_state', PyTango.DevString, PyTango.READ_WRITE),
+                             self.read_shutter_manual_state, self.write_shutter_manual_state)
+            print(self.read_shutter_manual_state.__name__)
+            self.add_attribute(
+                PyTango.Attr('shutter_mode', PyTango.DevString, PyTango.READ_WRITE),
+                             self.read_shutter_mode, self.write_shutter_mode)
+            self.add_attribute(
+                PyTango.Attr('shutter_open_time',PyTango.DevDouble,PyTango.READ_WRITE),
+                             self.read_shutter_open_time, self.write_shutter_open_time)
+
     def __getattr__(self,name) :
         if name.startswith('is_') and name.endswith('_allowed') :
             split_name = name.split('_')[1:-1]
@@ -1254,8 +1270,7 @@ class LimaCCDs(PyTango.LatestDeviceImpl) :
             raise Exception("Invalid shutter state")
 
         shutter = self.__control.shutter()
-        if (shutter.hasCapability() and 
-            shutter.getModeList().count(Core.ShutterManual) and
+        if (shutter.getModeList().count(Core.ShutterManual) and
             shutter.getMode() == Core.ShutterManual and
             state in ["OPEN", "CLOSE"]):
             if shutter.getState(): state = "OPEN"
@@ -1269,8 +1284,7 @@ class LimaCCDs(PyTango.LatestDeviceImpl) :
     def read_shutter_manual_state(self,attr) :
         shutter = self.__control.shutter()
 
-        if (shutter.hasCapability() and 
-            shutter.getModeList().count(Core.ShutterManual) and
+        if (shutter.getModeList().count(Core.ShutterManual) and
             shutter.getMode() == Core.ShutterManual):
             if shutter.getState(): state = "OPEN"
             else: state = "CLOSED"
@@ -1620,6 +1634,10 @@ class LimaCCDs(PyTango.LatestDeviceImpl) :
     def read_config_available_name(self,attr) :
         config = self.__control.config()
         attr.set_value(config.getAlias())
+
+    def read_shutter_ctrl_is_available(self,attr):
+        is_available = self.__control.shutter().hasCapability()
+        attr.set_value(is_available)
         
 #==================================================================
 #
@@ -1920,7 +1938,7 @@ class LimaCCDs(PyTango.LatestDeviceImpl) :
 
         shutter = self.__control.shutter()
         
-        if shutter.hasCapability() and shutter.getModeList().count(Core.ShutterManual):
+        if shutter.getModeList().count(Core.ShutterManual):
             shutter.setState(False)
             
 #------------------------------------------------------------------
@@ -1934,7 +1952,7 @@ class LimaCCDs(PyTango.LatestDeviceImpl) :
 
         shutter = self.__control.shutter()
         
-        if shutter.hasCapability() and shutter.getModeList().count(Core.ShutterManual):
+        if shutter.getModeList().count(Core.ShutterManual):
             shutter.setState(True)
 
 
@@ -2331,22 +2349,6 @@ class LimaCCDsClass(PyTango.DeviceClass) :
         [[PyTango.DevBoolean,
           PyTango.SCALAR,
           PyTango.READ]],
-        'shutter_mode':
-        [[PyTango.DevString,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE]],
-        'shutter_manual_state':
-        [[PyTango.DevString,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE]],
-        'shutter_open_time':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE]],
-        'shutter_close_time':
-        [[PyTango.DevDouble,
-          PyTango.SCALAR,
-          PyTango.READ_WRITE]],
         'saving_directory':
         [[PyTango.DevString,
           PyTango.SCALAR,
@@ -2505,6 +2507,10 @@ class LimaCCDsClass(PyTango.DeviceClass) :
           PyTango.READ_WRITE]],
         'buffer_max_number':
         [[PyTango.DevLong,
+          PyTango.SCALAR,
+          PyTango.READ]],
+        'shutter_ctrl_is_available':
+        [[PyTango.DevBoolean,
           PyTango.SCALAR,
           PyTango.READ]],
         }

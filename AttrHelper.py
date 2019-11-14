@@ -172,6 +172,7 @@ def get_attr_4u(obj,name,interface,update_dict=True) :
                                                      function2Call)
                 
         if update_dict: obj.__dict__[name] = callable_obj
+        callable_obj.__name__ = name
         return callable_obj
 
     raise AttributeError('%s has no attribute %s' % (obj.__class__.__name__,name))
