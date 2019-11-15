@@ -1261,6 +1261,22 @@ class LimaCCDs(PyTango.LatestDeviceImpl) :
         saving = self.__control.saving()
         saving.setStatisticHistorySize(stat_size)
 
+    ## @brief get statistics log enabled flag
+    #
+    @Core.DEB_MEMBER_FUNCT
+    def read_saving_statistics_log_enable(self,attr) :
+        saving = self.__control.saving()
+        attr.set_value(saving.getEnableLogStat())
+
+    
+    ## @brief set statistics log enable flag
+    #
+    @Core.DEB_MEMBER_FUNCT
+    def write_saving_statistics_log_enable(self,attr) :
+        flag = attr.get_write_value()
+        saving = self.__control.saving()
+        saving.setEnableLogStat(flag)
+
     ## @brief Write current shutter state if in manual mode
     # True-Open, False-Close
     @Core.DEB_MEMBER_FUNCT
@@ -2405,6 +2421,10 @@ class LimaCCDsClass(PyTango.DeviceClass) :
         [[PyTango.DevLong,
           PyTango.SCALAR,
           PyTango.READ_WRITE]],
+        'saving_statistics_log_enable':
+        [[PyTango.DevBoolean,
+          PyTango.SCALAR,
+          PyTango.READ_WRITE]],        
         'saving_max_writing_task':
         [[PyTango.DevShort,
           PyTango.SCALAR,
