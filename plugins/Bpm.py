@@ -207,10 +207,10 @@ class BpmDeviceServer(BasePostProcess):
         for i,r in enumerate(results):
             result_array[i][0] = r.timestamp
             result_array[i][1] = self.validate_number(r.beam_intensity)
-            result_array[i][2] = self.validate_number(r.beam_center_x, max_value=max_width)
-            result_array[i][3] = self.validate_number(r.beam_center_y, max_value=max_height)
-            result_array[i][4] = self.validate_number(r.beam_fwhm_x, fallback_value=0)
-            result_array[i][5] = self.validate_number(r.beam_fwhm_y, fallback_value=0)
+            result_array[i][2] = self.validate_number(r.beam_center_x, max_value=max_width) * self.calibration[0]
+            result_array[i][3] = self.validate_number(r.beam_center_y, max_value=max_height) * self.calibration[1]
+            result_array[i][4] = self.validate_number(r.beam_fwhm_x, fallback_value=0) * self.calibration[0]
+            result_array[i][5] = self.validate_number(r.beam_fwhm_y, fallback_value=0) * self.calibration[1]
             result_array[i][6] = r.frameNumber
         return result_array.ravel()
 
