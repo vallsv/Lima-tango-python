@@ -440,6 +440,10 @@ class BpmDeviceServer(BasePostProcess):
         data = attr.get_write_value()
         max = 2**(self.ImageType2Bpp[_control_ref().image().getImageType()])
         range = [0, max]
+        #reset asked to default
+        if data[0] == 0 and data[1] == 0:
+            data[1] = max
+
         if data[0] > data[1]:
             PyTango.Except.throw_exception('WrongData',\
                                            f'Wrong values min_max: {data}, max < min',
@@ -466,7 +470,7 @@ class BpmDeviceServer(BasePostProcess):
         data = attr.get_write_value()
         self.return_bpm_profiles = data
         #update the property
-        prop = {'return_bpm_profiles': data}
+        prop = {'return_bpmpylon/PylonBase.h_profiles': data}
         PyTango.Database().put_device_property(self.get_name(), prop)
 
     def is_return_bpm_profiles_allowed(self,mode) :
