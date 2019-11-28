@@ -701,9 +701,9 @@ def construct_bvdata(bpm):
         profile_x = last_proj_x.tobytes()
         profile_y = last_proj_y.tobytes()
     else:
-        profile_x = image.buffer[:,bpm.beammark[1]].astype(numpy.uint64)
+        profile_x = image.buffer[:,bpm.beammark[0]].astype(numpy.uint64)
         profile_x = profile_x.tobytes()
-        profile_y = image.buffer[bpm.beammark[0],:].astype(numpy.uint64)
+        profile_y = image.buffer[bpm.beammark[1],:].astype(numpy.uint64)
         profile_y = profile_y.tobytes()
 
 
