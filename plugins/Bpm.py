@@ -73,6 +73,21 @@ class BpmDeviceServer(BasePostProcess):
 #--------- Add you global variables here --------------------------
     BPM_TASK_NAME = "BpmTask"
     BVDATA_TASK_NAME = "BVDataTask"
+
+    ImageType2Bpp = {
+        Core.Bpp8 : 8 ,
+        Core.Bpp10 : 10 ,
+        Core.Bpp12 : 12 ,
+        Core.Bpp14 : 14 ,
+        Core.Bpp16 : 16,
+        Core.Bpp32 : 32 ,
+        Core.Bpp8S : 7 ,
+        Core.Bpp10S : 9 ,
+        Core.Bpp12S : 11 ,
+        Core.Bpp14S : 13 ,
+        Core.Bpp16S : 15,
+        Core.Bpp32S : 31 ,
+    }
 #------------------------------------------------------------------
 #    Device constructor
 #------------------------------------------------------------------
@@ -85,6 +100,9 @@ class BpmDeviceServer(BasePostProcess):
         self.bkg_substraction_handler = None        
 
         self.palette = self.init_palette()
+
+        # initialize min max for image scaling
+        #self.min_max = [0, 2**(self.ImageType2Bpp[_control_ref().image().getImageType()])]
 
         BasePostProcess.__init__(self,cl,name)
         self.init_device()
@@ -189,10 +207,10 @@ class BpmDeviceServer(BasePostProcess):
         for i,r in enumerate(results):
             result_array[i][0] = r.timestamp
             result_array[i][1] = self.validate_number(r.beam_intensity)
-            result_array[i][2] = self.validate_number(r.beam_center_x, max_value=max_width)
-            result_array[i][3] = self.validate_number(r.beam_center_y, max_value=max_height)
-            result_array[i][4] = self.validate_number(r.beam_fwhm_x, fallback_value=0)
-            result_array[i][5] = self.validate_number(r.beam_fwhm_y, fallback_value=0)
+            result_array[i][2] = self.validate_number(r.beam_center_x, max_value=max_width) * self.calibration[0]
+            result_array[i][3] = self.validate_number(r.beam_center_y, max_value=max_height) * self.calibration[1]
+            result_array[i][4] = self.validate_number(r.beam_fwhm_x, fallback_value=0) * self.calibration[0]
+            result_array[i][5] = self.validate_number(r.beam_fwhm_y, fallback_value=0) * self.calibration[1]
             result_array[i][6] = r.frameNumber
         return result_array.ravel()
 
@@ -205,7 +223,6 @@ class BpmDeviceServer(BasePostProcess):
         except:
             return -1
  
-##############BACKGROUND : work through bpm device commande.
     def TakeBackground(self):
         ctControl = _control_ref()
         extOpt = ctControl.externalOperation()
@@ -344,8 +361,11 @@ class BpmDeviceServer(BasePostProcess):
             prop = {'lut_method': data}
             PyTango.Database().put_device_property(self.get_name(), prop)
         
-        else:            
-            print ("wrong lut method, 'LINEAR' or 'LOG'")
+        else:
+            PyTango.Except.throw_exception('WrongData',\
+                                           f'Wrong value lut_method: {data}, use log or linear instead',
+                                           'LimaCCD Class')
+
 
     def is_lut_method_allowed(self,mode) :
         return True
@@ -413,6 +433,48 @@ class BpmDeviceServer(BasePostProcess):
         
         attr.set_value(self.bvdata_format,self.bvdata)
 
+    def read_min_max(self,attr):
+        attr.set_value(self.min_max)
+
+    def write_min_max(self, attr):
+        data = attr.get_write_value()
+        max = 2**(self.ImageType2Bpp[_control_ref().image().getImageType()])
+        range = [0, max]
+        #reset asked to default
+        if data[0] == 0 and data[1] == 0:
+            data[1] = max
+
+        if data[0] > data[1]:
+            PyTango.Except.throw_exception('WrongData',\
+                                           f'Wrong values min_max: {data}, max < min',
+                                           'LimaCCD Class')
+
+        if data[0] > max or data[1] > max:
+            PyTango.Except.throw_exception('WrongData',\
+                                           f'Wrong value min_max: {data}, out of range {range}',
+                                           'LimaCCD Class'
+                                           )
+        self.min_max[0] = data[0]
+        self.min_max[1] = data[1]
+        #update the property
+        prop = {'min_max': data}
+        PyTango.Database().put_device_property(self.get_name(), prop)
+
+    def is_min_max_allowed(self,mode) :
+        return True
+
+    def read_return_bpm_profiles(self,attr):
+        attr.set_value(self.return_bpm_profiles)
+
+    def write_return_bpm_profiles(self,attr):
+        data = attr.get_write_value()
+        self.return_bpm_profiles = data
+        #update the property
+        prop = {'return_bpmpylon/PylonBase.h_profiles': data}
+        PyTango.Database().put_device_property(self.get_name(), prop)
+
+    def is_return_bpm_profiles_allowed(self,mode) :
+        return True
 
 #==================================================================
 #
@@ -455,7 +517,15 @@ class BpmDeviceServerClass(PyTango.DeviceClass):
          'jpeg_quality':
          [PyTango.DevLong,
          "Set jpeg encoding quality from 1-100",
-         80]
+          80],
+        'return_bpm_profiles':
+        [PyTango.DevBoolean,
+         "return bpm profiles if True, otherwise the beammark profiles",
+         True],
+        "min_max":
+        [PyTango.DevVarLongArray,
+         "min/max value for manual scaling",
+         [0,65535] ],
 	}
 
 
@@ -505,7 +575,9 @@ class BpmDeviceServerClass(PyTango.DeviceClass):
         'bvdata':[[PyTango.DevEncoded, PyTango.SCALAR, PyTango.READ]],
         'calibration': [[PyTango.DevDouble, PyTango.SPECTRUM, PyTango.READ_WRITE, 2 ]],
         'beammark': [[PyTango.DevLong, PyTango.SPECTRUM, PyTango.READ_WRITE, 2 ]],
-        'jpeg_quality': [[PyTango.DevLong, PyTango.SCALAR, PyTango.READ_WRITE]]
+        'jpeg_quality': [[PyTango.DevLong, PyTango.SCALAR, PyTango.READ_WRITE]],
+        'min_max': [[PyTango.DevULong64, PyTango.SPECTRUM, PyTango.READ_WRITE, 2 ]],
+        'return_bpm_profiles': [[PyTango.DevBoolean, PyTango.SCALAR, PyTango.READ_WRITE]],
     }
 
 
@@ -581,26 +653,23 @@ def construct_bvdata(bpm):
     jpegFile = StringIO()
     image_type = _control_ref().image().getImageType()
 
-    if image_type==0: #Bpp8
-        bpp = 8
-    elif image_type==2: #Bpp10
-        bpp = 10
-    elif image_type==4: #Bpp12
-        bpp = 12
-    elif image_type==6: #Bpp14
-        bpp = 14
-    elif image_type==8: #Bpp16
-        bpp = 16
-    elif image_type==16: #Bpp24
-        bpp = 24
-    elif image_type==10: #Bpp32
-        bpp = 32
+    bpp = bpm.ImageType2Bpp[image_type]
 
-    min_val = image.buffer.min()
-    max_val = image.buffer.max()
+    # manual scaling: use the user image min/max intensity to filter
+    if not bpm.autoscale:
+        min_val = bpm.min_max[0]
+        max_val = bpm.min_max[1]
+        if max_val == 0: max_val = 1
+        scale_image = image.buffer.clip(min_val, max_val)
 
-    scale_image = image.buffer
+    # auto scaling: use natural image intensity
+    else:
+        min_val = image.buffer.min()
+        max_val = image.buffer.max()
+        if max_val == 0: max_val = 1
+        scale_image = image.buffer
 
+    # logarithmic scaling
     if bpm.lut_method=="LOG":
         if min_val>0:
             scale_image = numpy.log10(scale_image)
@@ -610,19 +679,12 @@ def construct_bvdata(bpm):
         min_val = numpy.log10(min_val)
         max_val = numpy.log10(max_val if max_val > 0 else 1)
 
-    if bpm.autoscale or bpm.lut_method=="LOG":
-        scaling = (2**16 - 1.) / (max_val - min_val)
-        scale_image = ((scale_image - min_val) * scaling).astype(numpy.uint16)
-    else:
-        shift = bpp - 16
-        if shift > 0:
-            scale_image = numpy.right_shift(scale_image, shift).astype(numpy.uint16)
-        elif shift < 0:
-            scale_image = numpy.left_shift(scale_image, -shift).astype(numpy.uint16)
-        else:
-            scale_image = scale_image.astype(numpy.uint16)
+    # scale the image to the whole range 16bit before palette transformation for 0 to 65535
+    scaling = (2**16 - 1.) / (max_val - min_val)
+    scale_image = ((scale_image - min_val) * scaling).astype(numpy.uint16)
 
-    if bpm.color_map==True:
+    # last transformation ot color or greys palette
+    if bpm.color_map:
         img_buffer = bpm.palette["color"].take(scale_image, axis=0)
     else:
         img_buffer = bpm.palette["grey"].take(scale_image, axis=0)
@@ -635,9 +697,17 @@ def construct_bvdata(bpm):
 
     raw_jpeg_data = jpegFile.getvalue()
     image_jpeg = base64.b64encode(raw_jpeg_data)
-    profil_x = last_proj_x.tobytes()
-    profil_y = last_proj_y.tobytes()
-    bvdata_format='dldddliiiidd%ds%ds%ds' %(len(profil_x),len(profil_y),len(image_jpeg))
+    if bpm.return_bpm_profiles:
+        profile_x = last_proj_x.tobytes()
+        profile_y = last_proj_y.tobytes()
+    else:
+        profile_x = image.buffer[:,bpm.beammark[0]].astype(numpy.uint64)
+        profile_x = profile_x.tobytes()
+        profile_y = image.buffer[bpm.beammark[1],:].astype(numpy.uint64)
+        profile_y = profile_y.tobytes()
+
+
+    bvdata_format='dldddliiiidd%ds%ds%ds' %(len(profile_x),len(profile_y),len(image_jpeg))
     bvdata = struct.pack(
                 bvdata_format,
                 last_acq_time,
@@ -652,8 +722,8 @@ def construct_bvdata(bpm):
 		        roi_size.getHeight(),
 		        last_fwhm_x,
 		        last_fwhm_y,
-                profil_x,
-                profil_y,
+                profile_x,
+                profile_y,
                 image_jpeg)
     return bvdata, bvdata_format
 
