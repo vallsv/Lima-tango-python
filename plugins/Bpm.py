@@ -470,7 +470,7 @@ class BpmDeviceServer(BasePostProcess):
         data = attr.get_write_value()
         self.return_bpm_profiles = data
         #update the property
-        prop = {'return_bpmpylon/PylonBase.h_profiles': data}
+        prop = {'return_bpm_profiles': data}
         PyTango.Database().put_device_property(self.get_name(), prop)
 
     def is_return_bpm_profiles_allowed(self,mode) :
