@@ -470,7 +470,7 @@ class BpmDeviceServer(BasePostProcess):
         data = attr.get_write_value()
         self.return_bpm_profiles = data
         #update the property
-        prop = {'return_bpmpylon/PylonBase.h_profiles': data}
+        prop = {'return_bpm_profiles': data}
         PyTango.Database().put_device_property(self.get_name(), prop)
 
     def is_return_bpm_profiles_allowed(self,mode) :
@@ -659,7 +659,6 @@ def construct_bvdata(bpm):
     if not bpm.autoscale:
         min_val = bpm.min_max[0]
         max_val = bpm.min_max[1]
-        if max_val == 0: max_val = 1
         scale_image = image.buffer.clip(min_val, max_val)
 
     # auto scaling: use natural image intensity
@@ -668,6 +667,7 @@ def construct_bvdata(bpm):
         max_val = image.buffer.max()
         if max_val == 0: max_val = 1
         scale_image = image.buffer
+    
 
     # logarithmic scaling
     if bpm.lut_method=="LOG":
@@ -677,9 +677,10 @@ def construct_bvdata(bpm):
             scale_image = numpy.log10(scale_image.clip(1, None))
             min_val += 1
         min_val = numpy.log10(min_val)
-        max_val = numpy.log10(max_val if max_val > 0 else 1)
+        max_val = numpy.log10(max_val)
 
     # scale the image to the whole range 16bit before palette transformation for 0 to 65535
+    if max_val == min_val: max_val+=1
     scaling = (2**16 - 1.) / (max_val - min_val)
     scale_image = ((scale_image - min_val) * scaling).astype(numpy.uint16)
 
@@ -701,11 +702,10 @@ def construct_bvdata(bpm):
         profile_x = last_proj_x.tobytes()
         profile_y = last_proj_y.tobytes()
     else:
-        profile_x = image.buffer[:,bpm.beammark[0]].astype(numpy.uint64)
-        profile_x = profile_x.tobytes()
-        profile_y = image.buffer[bpm.beammark[1],:].astype(numpy.uint64)
+        profile_y = image.buffer[:,bpm.beammark[0]].astype(numpy.uint64)
         profile_y = profile_y.tobytes()
-
+        profile_x = image.buffer[bpm.beammark[1],:].astype(numpy.uint64)
+        profile_x = profile_x.tobytes()
 
     bvdata_format='dldddliiiidd%ds%ds%ds' %(len(profile_x),len(profile_y),len(image_jpeg))
     bvdata = struct.pack(
