@@ -701,6 +701,12 @@ class LimaCCDs(PyTango.LatestDeviceImpl) :
 
     ## @brief Read the Lima Type
     #
+    @RequiresSystemFeature('Core.CtControl.getVersion')
+    @Core.DEB_MEMBER_FUNCT
+    def read_lima_version(self,attr) :
+        value  = self.__control.getVersion()
+        attr.set_value(value)
+
     @Core.DEB_MEMBER_FUNCT
     def read_lima_type(self,attr) :        
         value  = self.LimaCameraType	
@@ -2153,6 +2159,10 @@ class LimaCCDsClass(PyTango.DeviceClass) :
     
     #    Attribute definitions
     attr_list = {
+        'lima_version':
+        [[PyTango.DevString,
+          PyTango.SCALAR,
+          PyTango.READ]],
         'lima_type':
         [[PyTango.DevString,
           PyTango.SCALAR,

@@ -143,6 +143,7 @@ few of them.
 Attribute name		    RW	    Type		    Description
 =========================== ======= ======================= =======================================================================================
 \                           \       **GENERAL INFORMATION** \
+lima_version                ro      DevString               The lima core library version number
 lima_type		    ro	    DevString		    LImA camera type:
 							    Maxipix,Pilatus,Frelon,Pco, Basler ...
 camera_type                 ro      DevString		    Like lima_type but in upper-case  !!
@@ -270,6 +271,7 @@ image_flip		    rw	    DevBoolean[2]	    Flip on the image, [0] = flip over X ax
 image_rotation              rw      DevString               Rotate the image: "0", "90", "180" or "270"
 \                           \       \                       \
 \                           \       **SHUTTER**             \
+shutter_ctrl_is_available   ro      DevBoolean              Return true if the camera has a shutter control
 shutter_mode		    rw	    DevString		    Synchronization for shutter,  modes are available:
 							     - **Manual**
 							     - **Auto_frame**, the output signal is activated for each individual frame of a sequence
