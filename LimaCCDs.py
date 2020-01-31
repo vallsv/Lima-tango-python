@@ -598,7 +598,7 @@ class LimaCCDs(PyTango.LatestDeviceImpl) :
 
         # Setup a user-defined detector name if it exists
         if self.UserInstrumentName:
-            if SystemHasFeature('Core.HwDetInfoCtrlObj.setUserInstrumentName'):
+            if SystemHasFeature('Core.HwDetInfoCtrlObj.setInstrumentName'):
                 self.__detinfo.setUserInstrumentName(self.UserInstrumentName)
             else:
                 deb.Warning('UserInstrumentName not supported in this version')
@@ -744,19 +744,19 @@ class LimaCCDs(PyTango.LatestDeviceImpl) :
         
     ## @brief Read the user instrument name
     #
-    @RequiresSystemFeature('Core.HwDetInfoCtrlObj.getUserInstrumentName')
+    @RequiresSystemFeature('Core.HwDetInfoCtrlObj.getInstrumentName')
     @Core.DEB_MEMBER_FUNCT
     def read_user_instrument_name(self,attr) :        
-        value = self.__detinfo.getUserInstrumentName() 
+        value = self.__detinfo.getInstrumentName() 
         attr.set_value(value)
 
     ## @brief Write the user instrument name
     #
-    @RequiresSystemFeature('Core.HwDetInfoCtrlObj.setUserInstrumentName')
+    @RequiresSystemFeature('Core.HwDetInfoCtrlObj.setInstrumentName')
     @Core.DEB_MEMBER_FUNCT
     def write_user_instrument_name(self,attr) :
         data = attr.get_write_value()
-        self.__detinfo.setUserInstrumentName(data)
+        self.__detinfo.setInstrumentName(data)
 
     ## @brief Read the Camera pixelsize
     #
