@@ -945,7 +945,7 @@ class LimaTacoCCDs(PyTango.LatestDeviceImpl, object):
         control = _control_ref()
         acquisition = control.acquisition()
         triggerMode = acquisition.getTriggerMode()
-        if triggerMode == Core.IntTrig:
+        if triggerMode == Core.IntTrig or triggerMode == Core.IntTrigMult:
             returnValue = 0
         elif triggerMode == Core.ExtTrigSingle or triggerMode == Core.ExtGate:
             returnValue = 1
