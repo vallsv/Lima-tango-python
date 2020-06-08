@@ -27,12 +27,13 @@ import processlib
 import time
 import struct
 import threading
+import weakref
 
 from Lima import Core
 from Lima.Server.plugins.Utils import BasePostProcess
 
 
-# PIL an StringIO, py2 vs. py3 
+# PIL an StringIO, py2 vs. py3
 try:
     import Image
 except ImportError:
@@ -42,7 +43,7 @@ try:
     from cString import StringIO
 except ImportError:
     from io import BytesIO as StringIO
-    
+
 # 3-4x faster jpeg encoding than PIL
 # https://github.com/lilohuang/PyTurboJPEG
 try:
@@ -97,7 +98,7 @@ class BpmDeviceServer(BasePostProcess):
         self._bpmManager = None
         self.bvdata = None
         self._BVDataTask = None
-        self.bkg_substraction_handler = None        
+        self.bkg_substraction_handler = None
 
         self.palette = self.init_palette()
 
@@ -119,14 +120,15 @@ class BpmDeviceServer(BasePostProcess):
     def set_state(self,state) :
         if(state == PyTango.DevState.OFF) :
             if(self._softOp) :
-                self._softOp = None
-                self._bpmManager = None
-                self._BVDataTask = None
                 ctControl = _control_ref()
                 extOpt = ctControl.externalOperation()
                 if self.enable_tango_event:
+                    self._BVDataTask.stop()
                     extOpt.delOp(self.BVDATA_TASK_NAME)
                 extOpt.delOp(self.BPM_TASK_NAME)
+                self._softOp = None
+                self._bpmManager = None
+                self._BVDataTask = None
         elif(state == PyTango.DevState.ON) :
             if not self._bpmManager:
                 ctControl = _control_ref()
@@ -135,7 +137,7 @@ class BpmDeviceServer(BasePostProcess):
                                                     self._runLevel+1)
                 self._bpmManager = self._softOp.getManager()
                 if self.enable_tango_event:
-                    self._BVDataTask = BVDataTask(self._bpmManager,self)
+                    self._BVDataTask = BVDataTask(self)
                     handler = extOpt.addOp(Core.USER_SINK_TASK,
                                         self.BVDATA_TASK_NAME,self._runLevel+2)
                     handler.setSinkTask(self._BVDataTask)
@@ -222,7 +224,7 @@ class BpmDeviceServer(BasePostProcess):
             return int(raw_image[y][x])
         except:
             return -1
- 
+
     def TakeBackground(self):
         ctControl = _control_ref()
         extOpt = ctControl.externalOperation()
@@ -286,7 +288,7 @@ class BpmDeviceServer(BasePostProcess):
             profile_y = result.profile_y.buffer.astype(numpy.int)
         except:
             profile_y = numpy.array([],dtype=numpy.int)
-                    
+
         acq_time=t
         result_array = [acq_time,x,y,intensity,fwhm_x,fwhm_y,max_intensity,profile_x,profile_y]
         return result_array
@@ -345,7 +347,7 @@ class BpmDeviceServer(BasePostProcess):
         self.autoscale = data
         #update the property
         prop = {'autoscale': data}
-        PyTango.Database().put_device_property(self.get_name(), prop)        
+        PyTango.Database().put_device_property(self.get_name(), prop)
 
     def is_autoscale_allowed(self,mode) :
         return True
@@ -360,7 +362,7 @@ class BpmDeviceServer(BasePostProcess):
             #update the property
             prop = {'lut_method': data}
             PyTango.Database().put_device_property(self.get_name(), prop)
-        
+
         else:
             PyTango.Except.throw_exception('WrongData',\
                                            f'Wrong value lut_method: {data}, use log or linear instead',
@@ -369,7 +371,7 @@ class BpmDeviceServer(BasePostProcess):
 
     def is_lut_method_allowed(self,mode) :
         return True
-    
+
     def read_color_map(self,attr):
         attr.set_value(self.color_map)
 
@@ -382,12 +384,12 @@ class BpmDeviceServer(BasePostProcess):
 
     def is_color_map_allowed(self,mode) :
         return True
-        
+
     def read_calibration(self, attr):
         if None not in self.calibration:
             attr.set_value(self.calibration)
 
-    
+
     def write_calibration(self, attr):
         data = attr.get_write_value()
         self.calibration = data
@@ -397,11 +399,11 @@ class BpmDeviceServer(BasePostProcess):
 
     def is_calibration_allowed(self,mode) :
         return True
-        
+
     def read_beammark(self, attr):
         if None not in self.beammark:
             attr.set_value(self.beammark)
-    
+
     def write_beammark(self, attr):
         data = attr.get_write_value()
         self.beammark[0] = data[0]
@@ -430,7 +432,7 @@ class BpmDeviceServer(BasePostProcess):
         self.bvdata = None
         self.bvdata_format = None
         self.bvdata, self.bvdata_format = construct_bvdata(self)
-        
+
         attr.set_value(self.bvdata_format,self.bvdata)
 
     def read_min_max(self,attr):
@@ -595,41 +597,42 @@ class BVDataTask(Core.Processlib.SinkTaskBase):
         Core.DEB_CLASS(Core.DebModApplication, "_PushingThread")
         def __init__(self, task):
             threading.Thread.__init__(self)
-            self._task = task
+            self._task = weakref.ref(task)
             self.timestamp = time.time()
         def run(self):
-            task = self._task
-            while task._stop is False:
+            bpm_device = self._task()._bpm_device
+            while self._task()._stop is False:
 
-                with task._lock:
-                    while (task._new_frame_ready is False and
-                           task._stop is False):
-                        task._lock.wait()
-                    if task._stop:
+                with self._task()._lock:
+                    while (self._task()._new_frame_ready is False and
+                           self._task()._stop is False):
+                        self._task()._lock.wait()
+                    if self._task()._stop:
                         break
-                    task._new_frame_ready = False
+                    self._task()._new_frame_ready = False
 
                 dt = time.time() - self.timestamp
                 if dt>0.04:
-                    bvdata, bvdata_format = construct_bvdata(self._task._bpm_device)
-                    self._task._bpm_device.push_change_event("bvdata", bvdata_format, bvdata)
+                    bvdata, bvdata_format = construct_bvdata(bpm_device)
+                    bpm_device.push_change_event("bvdata", bvdata_format, bvdata)
                     self.timestamp=time.time()
 
-    def __init__(self, bpm_manager, bpm_device):
+    def __init__(self, bpm_device):
         Core.Processlib.SinkTaskBase.__init__(self)
         self._bpm_device = bpm_device
-        self._bpm_manager = bpm_manager
         self._lock = threading.Condition()
         self._new_frame_ready = False
         self._stop = False
         self._pushing_event_thread = self._PushingThread(self)
         self._pushing_event_thread.start()
 
-    def __del__(self):
-        self._stop=True
+    def stop(self):
+        with self._lock:
+            self._stop=True
+            self._lock.notify()
         self._pushing_event_thread.join()
 
-    def process(self, data):        
+    def process(self, data):
         with self._lock:
             # just inform pushing_thread of a new image
             self._new_frame_ready = True
@@ -643,10 +646,10 @@ class BVDataTask(Core.Processlib.SinkTaskBase):
 def construct_bvdata(bpm):
     # just read the last image
     image = _control_ref().ReadImage()
-    
+
     last_acq_time, last_x, last_y, last_intensity,\
-    last_fwhm_x, last_fwhm_y, last_max_intensity,\
-    last_proj_x, last_proj_y = bpm.get_bpm_result(image.frameNumber, image.timestamp) 
+        last_fwhm_x, last_fwhm_y, last_max_intensity,\
+        last_proj_x, last_proj_y = bpm.get_bpm_result(image.frameNumber, image.timestamp)
     lima_roi = _control_ref().image().getRoi()
     roi_top_left = lima_roi.getTopLeft()
     roi_size = lima_roi.getSize()
@@ -667,7 +670,7 @@ def construct_bvdata(bpm):
         max_val = image.buffer.max()
         if max_val == 0: max_val = 1
         scale_image = image.buffer
-    
+
 
     # logarithmic scaling
     if bpm.lut_method=="LOG":
