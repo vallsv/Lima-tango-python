@@ -262,6 +262,7 @@ image_type		    ro	    DevString		    Return the current image data type, bit pe
 image_width		    ro	    DevLong	            Width size of the detector in pixel
 image_height		    ro	    DevLong		    Height size of the detector in pixel
 image_sizes                 ro      DevULong[4]             Signed(0-unsigned,1-signed), depth(nb bytes), width and height
+image_max_dim               ro      DevULong[2]             Maximum image dimension, width and height in pixel
 image_roi		    rw	    DevLong[4]		    Region Of Interest on image, [0] = Begin X, [1] = End X,
 							    [2] Begin Y, [3] = End Y, default ROI is [0,0,0,0] (no ROI)
 image_bin		    rw	    DevLong[2]		    Binning on image, [0] = Binning factor on X, [1] =

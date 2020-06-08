@@ -1005,7 +1005,7 @@ class LimaCCDs(PyTango.LatestDeviceImpl) :
         roi = Core.Roi(*data)
         image.setRoi(roi)
 
-    ## @brief Read image type
+    ## @brief Read image sizes
     #
     @Core.DEB_MEMBER_FUNCT
     def read_image_sizes(self,attr) :
@@ -1014,8 +1014,17 @@ class LimaCCDs(PyTango.LatestDeviceImpl) :
         dim = image.getImageDim()
         depth, signed = self.ImageType2NbBytes.get(imageType,(0,0))
         sizes = [signed, depth, dim.getSize().getWidth(), dim.getSize().getHeight()]
-        
+
         attr.set_value(sizes)
+
+    ## @brief Read max image dimension in width and height pixels
+    #
+    @Core.DEB_MEMBER_FUNCT
+    def read_image_max_dim(self,attr) :
+        size = self.__detinfo.getMaxImageSize()
+        dim = [size.getWidth(), size.getHeight()]
+
+        attr.set_value(dim)
 
     ## @brief Read image type
     #
@@ -2310,6 +2319,16 @@ class LimaCCDsClass(PyTango.DeviceClass) :
              'display unit':"",
              'format':"%d",
              'description':"Signed ,nb bytes of depth, nb pixels of width and nb pixels of height",
+         }],
+        'image_max_dim':
+        [[PyTango.DevULong,
+          PyTango.SPECTRUM,
+          PyTango.READ,2],
+         {
+             'label':"Width, Height",
+             'unit':"pixel",
+             'format':"%d",
+             'description':"Max width and height in pixel",
          }],
         'image_type':
         [[PyTango.DevString,
