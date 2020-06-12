@@ -71,7 +71,7 @@ class BasePostProcess(PyTango.LatestDeviceImpl) :
             self.__dict__[name] = self.__global_allowed
             return self.__global_allowed
         raise AttributeError('%s has no attribute %s' %
-                             (self.__class__.name,name))
+                             (self.__class__.__name__,name))
 
     def __global_allowed(self,*args) :
         return self.get_state() == PyTango.DevState.ON

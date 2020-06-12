@@ -1,0 +1,221 @@
+############################################################################
+# This file is part of LImA, a Library for Image Acquisition
+#
+# Copyright (C) : 2009-2011
+# European Synchrotron Radiation Facility
+# BP 220, Grenoble 38043
+# FRANCE
+#
+# This is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <http://www.gnu.org/licenses/>.
+############################################################################
+
+import itertools
+import weakref
+import PyTango
+import sys
+import numpy
+import json
+
+import bloscpack
+from collections import namedtuple
+from pymemcache.client.base import Client
+
+from Lima import Core
+from Lima.Server.plugins.Utils import getDataFromFile,BasePostProcess
+from Lima.Server import AttrHelper
+
+# def grouper(n, iterable, padvalue=None):
+#     return itertools.izip(*[itertools.chain(iterable, itertools.repeat(padvalue, n-1))]*n)
+
+#==================================================================
+#   MemcachedSinkTask SinkTask
+#==================================================================
+
+Key = namedtuple("Key", "acquisition frame")
+
+class MemcachedSinkTask(Core.Processlib.SinkTaskBase):
+    def __init__(self, client, acquisitionID):
+        """
+        :param client: A memcached client
+        :param acquisitionID: acquisition identifier
+        """
+        super().__init__()
+        self.__client = client
+        self.acquisitionID = acquisitionID
+
+    def process(self, img) :
+        """
+        Process a frame
+        """
+        key = Key(self.acquisitionID, img.frameNumber)
+        metadata = {"timestamp": img.timestamp, "shape": img.buffer.shape, "dtype": img.buffer.dtype.name}
+        raw = bloscpack.pack_bytes_to_bytes(img.buffer.data, metadata=metadata)
+        # This client implements the ASCII protocol of memcached that imposes contraints on the key (e.g. no space)
+        key = str(key).replace(" ", "")
+        self.__client.set(key, raw)
+
+#==================================================================
+#   Memcached Class Description:
+#
+#
+#==================================================================
+
+
+class MemcachedDeviceServer(BasePostProcess) :
+
+#--------- Add you global variables here --------------------------
+    MEMCACHED_TASK_NAME = "MemcachedTask"
+
+#------------------------------------------------------------------
+#    Device constructor
+#------------------------------------------------------------------
+    def __init__(self, cl, name):
+        self.__memcachedOpInstance = None
+        self.__memcacheTask = None
+        self.__client = None
+
+        super().__init__(cl, name)
+        self.init_device()
+        self.get_device_properties(self.get_device_class())
+
+    def set_state(self,state) :
+        if(state == PyTango.DevState.OFF) :
+            if(self.__memcachedOpInstance) :
+                self.__memcachedOpInstance = None
+                ctControl = _control_ref()
+                extOpt = ctControl.externalOperation()
+                extOpt.delOp(self.MEMCACHED_TASK_NAME)
+                self.__memcacheTask = None
+                self.__client = None
+        elif(state == PyTango.DevState.ON) :
+            if not self.__memcachedOpInstance:
+                ctControl = _control_ref()
+                extOpt = ctControl.externalOperation()
+                self.__memcachedOpInstance = extOpt.addOp(Core.USER_SINK_TASK, self.MEMCACHED_TASK_NAME,
+                                                    self._runLevel)
+                self.__client = Client((self.ServerIP, self.ServerPort))
+                self.__memcacheTask = MemcachedSinkTask(self.__client, self.AcquisitionID)
+                self.__memcachedOpInstance.setSinkTask(self.__memcacheTask)
+
+        PyTango.LatestDeviceImpl.set_state(self, state)
+
+#------------------------------------------------------------------
+#    Read Stats attribute
+#------------------------------------------------------------------
+    def read_Stats(self, attr):
+        stats = self.__client.stats()
+        decoded = {}
+        for k,v in stats.items():
+            if isinstance(k,bytes):
+                k = k.decode()
+            if isinstance(v,bytes):
+                v = v.decode()
+            decoded[k] = v
+        #print(type(stats))
+        print(decoded)
+        #str = "".join(['%s = %s\n' % (str(key), str(value)) for (key, value) in stats.items()])
+        attr.set_value(json.dumps(decoded, sort_keys=True, indent=4, separators=(',', ': ')))
+
+#------------------------------------------------------------------
+#    Read AcquisitionID attribute
+#------------------------------------------------------------------
+    def read_AcquisitionID(self, attr):
+        attr.set_value(self.__memcacheTask.acquisitionID)
+
+#------------------------------------------------------------------
+#    Write AcquisitionID attribute
+#------------------------------------------------------------------
+    def write_AcquisitionID(self, attr):
+        self.__memcacheTask.acquisitionID = attr.get_write_value()
+
+#==================================================================
+#
+#    Memcached command methods
+#
+#==================================================================
+
+    def FlushAll(self) :
+        if self.__client is None:
+            raise RuntimeError('Should start the device first')
+
+        self.__client.flush_all()
+
+#==================================================================
+#
+#    MemcachedClass class definition
+#
+#==================================================================
+class MemcachedDeviceServerClass(PyTango.DeviceClass):
+
+    #	 Class Properties
+    class_property_list = {
+    }
+
+
+    #	 Device Properties
+    device_property_list = {
+        'ServerIP':
+            [PyTango.DevString,
+            "IP of the memcached server",
+            [ "127.0.0.1" ] ],
+        'ServerPort':
+            [PyTango.DevLong,
+            "Port of the memcached server",
+            [ 11211 ] ],
+        'AcquisitionID':
+            [PyTango.DevString,
+            "Default acquisition ID",
+            [ "beamline-camera-time" ] ],
+    }
+
+
+    #	 Command definitions
+    cmd_list = {
+        'Start': [[PyTango.DevVoid,""], [PyTango.DevVoid,""]],
+        'Stop': [[PyTango.DevVoid,""], [PyTango.DevVoid,""]],
+        'FlushAll': [[PyTango.DevVoid,""], [PyTango.DevVoid,""]],
+    }
+
+
+    #	 Attribute definitions
+
+    attr_list = {
+    'AcquisitionID':
+        [[PyTango.DevString,
+        PyTango.SCALAR,
+        PyTango.READ_WRITE]],
+    'Stats':
+        [[PyTango.DevString,
+        PyTango.SCALAR,
+        PyTango.READ]],
+    'RunLevel':
+        [[PyTango.DevLong,
+        PyTango.SCALAR,
+        PyTango.READ_WRITE]],
+    }
+
+#------------------------------------------------------------------
+#    MemcachedDeviceServerClass Constructor
+#------------------------------------------------------------------
+    def __init__(self, name):
+        PyTango.DeviceClass.__init__(self, name)
+        self.set_type(name);
+
+_control_ref = None
+def set_control_ref(control_class_ref) :
+    global _control_ref
+    _control_ref= control_class_ref
+
+def get_tango_specific_class_n_device() :
+   return MemcachedDeviceServerClass, MemcachedDeviceServer
