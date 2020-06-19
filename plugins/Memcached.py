@@ -42,28 +42,36 @@ from Lima.Server import AttrHelper
 #   MemcachedSinkTask SinkTask
 #==================================================================
 
-Key = namedtuple("Key", "acquisition frame")
+Key = namedtuple("LImA", "detector acquisition frame")
+def _key_repr(self):
+    """Tune the representation of the namedtuple without spaces, 
+    because the memcached client wants no spaces in keys"""
+    return "LImA(%s,%s,%s)"%self
+Key.__repr__ = _key_repr
 
 class MemcachedSinkTask(Core.Processlib.SinkTaskBase):
-    def __init__(self, client, acquisitionID):
+    def __init__(self, client, acquisitionID, detectorID=0, blosc_args=None):
         """
         :param client: A memcached client
         :param acquisitionID: acquisition identifier
+        :param detectorID: detector identifier
+        :param 
         """
         super().__init__()
         self.__client = client
+        self.detectorID = detectorID
         self.acquisitionID = acquisitionID
+        self.blosc_args = blosc_args
 
     def process(self, img) :
         """
         Process a frame
         """
-        key = Key(self.acquisitionID, img.frameNumber)
-        metadata = {"timestamp": img.timestamp, "shape": img.buffer.shape, "dtype": img.buffer.dtype.name}
-        raw = bloscpack.pack_bytes_to_bytes(img.buffer.data, metadata=metadata)
-        # This client implements the ASCII protocol of memcached that imposes contraints on the key (e.g. no space)
-        key = str(key).replace(" ", "")
-        self.__client.set(key, raw)
+        key = Key(self.detectorID, self.acquisitionID, img.frameNumber)
+        metadata = {"timestamp": img.timestamp, "shape": img.buffer.shape, 
+                    "dtype": img.buffer.dtype.name, "strides": img.buffer.strides}
+        raw = bloscpack.pack_bytes_to_bytes(img.buffer.data, metadata=metadata, blosc_args=self.blosc_args)
+        self.__client.set(str(key), raw)
 
 #==================================================================
 #   Memcached Class Description:
