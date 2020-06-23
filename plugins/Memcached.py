@@ -44,7 +44,7 @@ from Lima.Server import AttrHelper
 
 Key = namedtuple("LImA", "detector acquisition frame")
 def _key_repr(self):
-    """Tune the representation of the namedtuple without spaces, 
+    """Tune the representation of the namedtuple without spaces,
     because the memcached client wants no spaces in keys"""
     return "LImA(%s,%s,%s)"%self
 Key.__repr__ = _key_repr
@@ -55,7 +55,7 @@ class MemcachedSinkTask(Core.Processlib.SinkTaskBase):
         :param client: A memcached client
         :param acquisitionID: acquisition identifier
         :param detectorID: detector identifier
-        :param 
+        :param blosc_args: BloscArgs
         """
         super().__init__()
         self.__client = client
@@ -68,7 +68,7 @@ class MemcachedSinkTask(Core.Processlib.SinkTaskBase):
         Process a frame
         """
         key = Key(self.detectorID, self.acquisitionID, img.frameNumber)
-        metadata = {"timestamp": img.timestamp, "shape": img.buffer.shape, 
+        metadata = {"timestamp": img.timestamp, "shape": img.buffer.shape,
                     "dtype": img.buffer.dtype.name, "strides": img.buffer.strides}
         raw = bloscpack.pack_bytes_to_bytes(img.buffer.data, metadata=metadata, blosc_args=self.blosc_args)
         self.__client.set(str(key), raw)
@@ -113,6 +113,21 @@ class MemcachedDeviceServer(BasePostProcess) :
                 self.__memcachedOpInstance = extOpt.addOp(Core.USER_SINK_TASK, self.MEMCACHED_TASK_NAME,
                                                     self._runLevel)
                 self.__client = Client((self.ServerIP, self.ServerPort))
+
+                # Get detector model
+                hw = ctControl.hwInterface()
+                detinfo = hw.getHwCtrlObj(Core.HwCap.DetInfo)
+                print(detinfo.getDetectorModel())
+
+                # Get data type
+                img = ctControl.image()
+                frame_dim = img.getImageDim()
+                print(frame_dim)
+                img_type = frame_dim.getImageType()
+                frame_dim.getImageTypeBpp(img_type) # Returns 32 (bits) for Bpp32
+                frame_dim.getImageTypeDepth(img_type) # Returns 4 (bytes) for Bpp32
+
+                # TODO Update the call to the ctor with info above
                 self.__memcacheTask = MemcachedSinkTask(self.__client, self.AcquisitionID)
                 self.__memcachedOpInstance.setSinkTask(self.__memcacheTask)
 
