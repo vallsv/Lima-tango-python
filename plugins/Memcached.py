@@ -32,7 +32,7 @@ from collections import namedtuple
 from pymemcache.client.base import Client
 
 from Lima import Core
-from Lima.Server.plugins.Utils import getDataFromFile,BasePostProcess
+from Lima.Server.plugins.Utils import getDataFromFile, BasePostProcess
 from Lima.Server import AttrHelper
 
 # def grouper(n, iterable, padvalue=None):
@@ -70,7 +70,9 @@ class MemcachedSinkTask(Core.Processlib.SinkTaskBase):
         key = Key(self.detectorID, self.acquisitionID, img.frameNumber)
         metadata = {"timestamp": img.timestamp, "shape": img.buffer.shape,
                     "dtype": img.buffer.dtype.name, "strides": img.buffer.strides}
-        raw = bloscpack.pack_bytes_to_bytes(img.buffer.data, metadata=metadata, blosc_args=self.blosc_args)
+        raw = bloscpack.pack_bytes_to_bytes(img.buffer.data, 
+                                            metadata=metadata, 
+                                            blosc_args=self.blosc_args)
         self.__client.set(str(key), raw)
 
 #==================================================================
@@ -92,7 +94,6 @@ class MemcachedDeviceServer(BasePostProcess) :
         self.__memcachedOpInstance = None
         self.__memcacheTask = None
         self.__client = None
-
         super().__init__(cl, name)
         self.init_device()
         self.get_device_properties(self.get_device_class())
@@ -111,24 +112,28 @@ class MemcachedDeviceServer(BasePostProcess) :
                 ctControl = _control_ref()
                 extOpt = ctControl.externalOperation()
                 self.__memcachedOpInstance = extOpt.addOp(Core.USER_SINK_TASK, self.MEMCACHED_TASK_NAME,
-                                                    self._runLevel)
+                                                          self._runLevel)
                 self.__client = Client((self.ServerIP, self.ServerPort))
 
                 # Get detector model
                 hw = ctControl.hwInterface()
                 detinfo = hw.getHwCtrlObj(Core.HwCap.DetInfo)
-                print(detinfo.getDetectorModel())
-
-                # Get data type
+                detectorID = detinfo.getDetectorModel()
+                
+                # Get image size
                 img = ctControl.image()
-                frame_dim = img.getImageDim()
-                print(frame_dim)
-                img_type = frame_dim.getImageType()
-                frame_dim.getImageTypeBpp(img_type) # Returns 32 (bits) for Bpp32
-                frame_dim.getImageTypeDepth(img_type) # Returns 4 (bytes) for Bpp32
-
-                # TODO Update the call to the ctor with info above
-                self.__memcacheTask = MemcachedSinkTask(self.__client, self.AcquisitionID)
+                frame_dim = img.getImageDim()            
+                img_type = frame_dim.getImageType()    
+                blosc_args = bloscpack.BloscArgs(frame_dim.getImageTypeDepth(img_type),
+                                                 self.CompressionLevel,
+                                                 self.CompressionShuffle,
+                                                 self.CompressionName)
+                
+                self.__memcacheTask = MemcachedSinkTask(self.__client, 
+                                                        self.AcquisitionID,
+                                                        detectorID,
+                                                        blosc_args
+                                                        )
                 self.__memcachedOpInstance.setSinkTask(self.__memcacheTask)
 
         PyTango.LatestDeviceImpl.set_state(self, state)
@@ -200,6 +205,18 @@ class MemcachedDeviceServerClass(PyTango.DeviceClass):
             [PyTango.DevString,
             "Default acquisition ID",
             [ "beamline-camera-time" ] ],
+        'CompressionName':
+            [PyTango.DevString,
+            "Default compression name",
+            [ "lz4" ] ],
+        'CompressionLevel':
+            [PyTango.DevLong,
+            "Default compression level [0-9]",
+            [ 7 ] ],
+        'CompressionShuffle':
+            [PyTango.DevLong,
+            "Default pre-compression data shuffling [0-2]",
+            [ 1 ] ],
     }
 
 
@@ -218,6 +235,18 @@ class MemcachedDeviceServerClass(PyTango.DeviceClass):
         [[PyTango.DevString,
         PyTango.SCALAR,
         PyTango.READ_WRITE]],
+    'CompressionName':
+        [[PyTango.DevString,
+        PyTango.SCALAR,
+        PyTango.READ_WRITE]],
+    'CompressionLevel':
+        [[PyTango.DevLong,
+        PyTango.SCALAR,
+        PyTango.READ_WRITE]],
+    'CompressionShuffle':
+        [[PyTango.DevLong,
+        PyTango.SCALAR,
+        PyTango.READ_WRITE]],    
     'Stats':
         [[PyTango.DevString,
         PyTango.SCALAR,
@@ -241,4 +270,4 @@ def set_control_ref(control_class_ref) :
     _control_ref= control_class_ref
 
 def get_tango_specific_class_n_device() :
-   return MemcachedDeviceServerClass, MemcachedDeviceServer
+    return MemcachedDeviceServerClass, MemcachedDeviceServer
