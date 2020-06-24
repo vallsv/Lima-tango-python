@@ -70,8 +70,8 @@ class MemcachedSinkTask(Core.Processlib.SinkTaskBase):
         key = Key(self.detectorID, self.acquisitionID, img.frameNumber)
         metadata = {"timestamp": img.timestamp, "shape": img.buffer.shape,
                     "dtype": img.buffer.dtype.name, "strides": img.buffer.strides}
-        raw = bloscpack.pack_bytes_to_bytes(img.buffer.data, 
-                                            metadata=metadata, 
+        raw = bloscpack.pack_bytes_to_bytes(img.buffer.data,
+                                            metadata=metadata,
                                             blosc_args=self.blosc_args)
         self.__client.set(str(key), raw)
 
@@ -119,29 +119,31 @@ class MemcachedDeviceServer(BasePostProcess) :
                 hw = ctControl.hwInterface()
                 detinfo = hw.getHwCtrlObj(Core.HwCap.DetInfo)
                 detectorID = detinfo.getDetectorModel()
-                
+
                 # Get image size
                 img = ctControl.image()
-                frame_dim = img.getImageDim()            
-                img_type = frame_dim.getImageType()    
+                frame_dim = img.getImageDim()
+                img_type = frame_dim.getImageType()
+
+                # Prepare BloscArgs
                 blosc_args = bloscpack.BloscArgs(frame_dim.getImageTypeDepth(img_type),
                                                  self.CompressionLevel,
                                                  self.CompressionShuffle,
                                                  self.CompressionName)
-                
-                self.__memcacheTask = MemcachedSinkTask(self.__client, 
+
+                # Create and set MemcachedSinkTask
+                self.__memcacheTask = MemcachedSinkTask(self.__client,
                                                         self.AcquisitionID,
                                                         detectorID,
-                                                        blosc_args
-                                                        )
+                                                        blosc_args)
                 self.__memcachedOpInstance.setSinkTask(self.__memcacheTask)
 
         PyTango.LatestDeviceImpl.set_state(self, state)
 
 #------------------------------------------------------------------
-#    Read Stats attribute
+#    Read MemcachedStats attribute
 #------------------------------------------------------------------
-    def read_Stats(self, attr):
+    def read_MemcachedStats(self, attr):
         stats = self.__client.stats()
         decoded = {}
         for k,v in stats.items():
@@ -156,6 +158,14 @@ class MemcachedDeviceServer(BasePostProcess) :
         attr.set_value(json.dumps(decoded, sort_keys=True, indent=4, separators=(',', ': ')))
 
 #------------------------------------------------------------------
+#    Read MemcachedVersion attribute
+#------------------------------------------------------------------
+    def read_MemcachedVersion(self, attr):
+        version = self.__client.version()
+        attr.set_value(version)
+        
+
+#------------------------------------------------------------------
 #    Read AcquisitionID attribute
 #------------------------------------------------------------------
     def read_AcquisitionID(self, attr):
@@ -166,6 +176,42 @@ class MemcachedDeviceServer(BasePostProcess) :
 #------------------------------------------------------------------
     def write_AcquisitionID(self, attr):
         self.__memcacheTask.acquisitionID = attr.get_write_value()
+
+#------------------------------------------------------------------
+#    Read CompressionName attribute
+#------------------------------------------------------------------
+    def read_CompressionName(self, attr):
+        attr.set_value(self.CompressionName)
+
+#------------------------------------------------------------------
+#    Write CompressionName attribute
+#------------------------------------------------------------------
+    def write_CompressionName(self, attr):
+        self.CompressionName = attr.get_write_value()
+
+#------------------------------------------------------------------
+#    Read CompressionLevel attribute
+#------------------------------------------------------------------
+    def read_CompressionLevel(self, attr):
+        attr.set_value(self.CompressionLevel)
+
+#------------------------------------------------------------------
+#    Write CompressionLevel attribute
+#------------------------------------------------------------------
+    def write_CompressionLevel(self, attr):
+        self.CompressionLevel = attr.get_write_value()
+
+#------------------------------------------------------------------
+#    Read CompressionShuffle attribute
+#------------------------------------------------------------------
+    def read_CompressionShuffle(self, attr):
+        attr.set_value(self.CompressionShuffle)
+
+#------------------------------------------------------------------
+#    Write CompressionShuffle attribute
+#------------------------------------------------------------------
+    def write_CompressionShuffle(self, attr):
+        self.CompressionShuffle = attr.get_write_value()
 
 #==================================================================
 #
@@ -229,32 +275,35 @@ class MemcachedDeviceServerClass(PyTango.DeviceClass):
 
 
     #	 Attribute definitions
-
     attr_list = {
-    'AcquisitionID':
-        [[PyTango.DevString,
-        PyTango.SCALAR,
-        PyTango.READ_WRITE]],
-    'CompressionName':
-        [[PyTango.DevString,
-        PyTango.SCALAR,
-        PyTango.READ_WRITE]],
-    'CompressionLevel':
-        [[PyTango.DevLong,
-        PyTango.SCALAR,
-        PyTango.READ_WRITE]],
-    'CompressionShuffle':
-        [[PyTango.DevLong,
-        PyTango.SCALAR,
-        PyTango.READ_WRITE]],    
-    'Stats':
-        [[PyTango.DevString,
-        PyTango.SCALAR,
-        PyTango.READ]],
-    'RunLevel':
-        [[PyTango.DevLong,
-        PyTango.SCALAR,
-        PyTango.READ_WRITE]],
+        'AcquisitionID':
+            [[PyTango.DevString,
+            PyTango.SCALAR,
+            PyTango.READ_WRITE]],
+        'CompressionName':
+            [[PyTango.DevString,
+            PyTango.SCALAR,
+            PyTango.READ_WRITE]],
+        'CompressionLevel':
+            [[PyTango.DevLong,
+            PyTango.SCALAR,
+            PyTango.READ_WRITE]],
+        'CompressionShuffle':
+            [[PyTango.DevLong,
+            PyTango.SCALAR,
+            PyTango.READ_WRITE]],
+        'MemcachedStats':
+            [[PyTango.DevString,
+            PyTango.SCALAR,
+            PyTango.READ]],
+        'MemcachedVersion':
+            [[PyTango.DevString,
+            PyTango.SCALAR,
+            PyTango.READ]],
+        'RunLevel':
+            [[PyTango.DevLong,
+            PyTango.SCALAR,
+            PyTango.READ_WRITE]],
     }
 
 #------------------------------------------------------------------
