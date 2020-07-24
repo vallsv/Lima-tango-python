@@ -1,5 +1,5 @@
 RoiCounter
-===========
+==========
 
 The Region-of-Interest to Counter operation is very useful to provide online statistics on some detector areas. The operation will calculate for each image acquired the **average**, the **standard deviation**, the **sum**, the **minimum** and the **maximum pixel** values.
 
@@ -41,6 +41,9 @@ getNames		DevVoid		     	     DevVarStringArray	 	   Return the list of Roi name
 getRoiModes		DevVarStringArray    	     DevVarStringArray	 	   Return the Roi modes 
 getRois			DevVarStringArray    	     DevVarStringArray	 	   Return the Roi positions
 			list of Roi names    	     list of Roi position
+			     	    	     	     (roi_id,x,y,width,heigth,...)
+getArcRois		DevVarStringArray    	     DevVarStringArray	 	   Return the ArcRoi positions
+			list of ArcRoi names    	list of ArcRoi position
 			     	    	     	     (roi_id,x,y,width,heigth,...)
 Init			DevVoid		     	     DevVoid			   Do not use
 readCounters		DevVarLongArray	     	     DevVarLongArray		 
