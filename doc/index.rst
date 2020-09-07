@@ -379,14 +379,15 @@ with **little-endian** byte order and no alignment::
   # The DATA_ARRAY definition
   struct {
       unsigned int       magic= 0x44544159; // magic key
-      unsigned short     version;           // version, only 1 supported
+      unsigned short     version;           // version, only 2 supported (since v1.9.5 - 2014)
       unsigned  short    header_size;       // size of the header
       DataArrayCategory  category;          // data array category, see DataArrayCategory enumerate
       DataArrayType      data_type;         // data type, see DataArrayType enumerate
       unsigned short     endianness;        // 0-little-endian, 1-big-endian
       unsigned short     nb_dim;            // number of dimension (0 to 7 max)e.g 2 for image
-      unsigned short     dim[8];            // size for each dimension, e.g [width,height]
-      unsigned int       dim_step[8];       // step size in pixel for each dimension, e.g [1,height]
+      unsigned short     dim[6];            // size for each dimension, e.g [width,height]
+      unsigned int       dim_step[6];       // step size in pixel for each dimension, e.g [1,height]
+      unsigned int       padding[2];        // 8 bytes of padding (for alignment)
   } DATA_ARRAY_STRUCT;
 
   enum DataArrayCategory {
